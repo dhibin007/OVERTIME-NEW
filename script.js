@@ -249,6 +249,7 @@ function addRow(emp) {
     allData[selectedDate][emp.id].out = outInput.value;
     allData[selectedDate][emp.id].site = siteInput.value;
     saveAllData();
+    updateSavedDatesList();
   }
 
   inInput.addEventListener("change", updateAndSave);
@@ -325,14 +326,16 @@ function applyTimeToTeam(teamName, siteIn, siteOut, siteName) {
     allData[selectedDate][emp.id].site = siteInput.value;
   });
   saveAllData();
+  updateSavedDatesList();
 }
 
 // ==========================
-// Save All Data Button
+// Save Button
 // ==========================
 document.getElementById("saveBtn").addEventListener("click", () => {
-  alert("Data saved for " + selectedDate);
   saveAllData();
+  updateSavedDatesList();
+  alert("Data saved for " + selectedDate);
 });
 
 // ==========================
@@ -361,6 +364,28 @@ function exportCSV() {
 }
 
 // ==========================
+// Saved Dates List
+// ==========================
+function updateSavedDatesList() {
+  const savedDatesList = document.getElementById("savedDatesList");
+  savedDatesList.innerHTML = "";
+
+  const dates = Object.keys(allData).sort((a,b)=> new Date(b)-new Date(a));
+  dates.forEach(date => {
+    const li = document.createElement("li");
+    li.textContent = date;
+    li.style.cursor = "pointer";
+    li.style.margin = "3px 0";
+    li.onclick = () => {
+      selectedDate = date;
+      dateInput.value = date;
+      buildEmployeeTable();
+    };
+    savedDatesList.appendChild(li);
+  });
+}
+
+// ==========================
 // Get current time
 // ==========================
 function getCurrentTime() {
@@ -373,3 +398,4 @@ function getCurrentTime() {
 // ==========================
 buildHamburgerMenu();
 buildEmployeeTable();
+updateSavedDatesList();

@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Employee Hours Tracker</title>
+<title>Employee Working Hours</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header>
   <button id="hamburgerBtn">☰ Teams</button>
-  <h1>Employee Hours Tracker</h1>
+  <h2>Employee Working Hours</h2>
 </header>
 
 <aside id="sidebar">
@@ -17,14 +17,19 @@
 </aside>
 
 <main>
-  <div class="top-controls">
-    <label for="workDate">Select Date:</label>
+  <div>
+    <label for="workDate">Select Date: </label>
     <input type="date" id="workDate">
-    <button id="saveBtn">💾 Save</button>
-    <button onclick="exportCSV()">📥 Export CSV</button>
+    <button id="saveBtn">Save</button>
+    <button onclick="exportCSV()">Export CSV</button>
   </div>
 
   <table id="employeeTable"></table>
+
+  <div id="savedDatesContainer">
+    <h4>Saved Dates:</h4>
+    <ul id="savedDatesList"></ul>
+  </div>
 </main>
 
 <script src="script.js"></script>

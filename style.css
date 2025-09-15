@@ -1,0 +1,45 @@
+/* Reset */
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: sans-serif; }
+
+body { display: flex; flex-direction: column; min-height: 100vh; }
+
+header { background: #262e87; color: #fff; padding: 10px; display: flex; align-items: center; }
+header h1 { flex: 1; text-align: center; font-size: 1.2rem; }
+header button { font-size: 1.5rem; background: none; border: none; color: #fff; cursor: pointer; }
+
+#sidebar {
+  position: fixed; top: 0; left: -250px; width: 250px; height: 100%;
+  background: #f04e23; color: #fff; overflow-y: auto; padding: 20px;
+  transition: 0.3s; z-index: 10;
+}
+#sidebar.open { left: 0; }
+
+#mainContent {
+  transition: margin-left 0.3s;
+}
+#sidebar.open ~ #mainContent { margin-left: 250px; }
+
+.team-block { margin-bottom: 20px; }
+.team-block h4 { margin-bottom: 10px; }
+.team-block ul { list-style: none; margin-bottom: 5px; }
+.team-block li { display: flex; justify-content: space-between; margin-bottom: 5px; }
+
+.bulk-section { margin-top: 20px; }
+.bulk-section input, .bulk-section button { display: block; width: 100%; margin-bottom: 5px; padding: 5px; }
+
+main { flex: 1; margin-left: 0; padding: 20px; overflow-x: auto; }
+#employeeTable { width: 100%; border-collapse: collapse; }
+#employeeTable th, #employeeTable td { border: 1px solid #ccc; padding: 5px; text-align: center; }
+#employeeTable tr:nth-child(even) { background: #f9f9f9; }
+#employeeTable tr:nth-child(1) { background: #262e87; color: #fff; }
+
+.missing { background: red; color: #fff; }
+
+footer { padding: 10px; text-align: center; background: #262e87; color: #fff; }
+
+@media (max-width: 768px) {
+  #sidebar { width: 200px; }
+  main { padding: 10px; }
+  header h1 { font-size: 1rem; }
+  #employeeTable th, #employeeTable td { font-size: 0.8rem; padding: 3px; }
+}

@@ -1,3 +1,4 @@
+
 // ==========================
 // Global data
 // ==========================
@@ -339,21 +340,51 @@ document.getElementById("saveBtn").addEventListener("click", () => {
 });
 
 // ==========================
-// Export CSV
+// Export CSV with date range
 // ==========================
 function exportCSV() {
+  const fromDate = document.getElementById("exportFrom").value || selectedDate;
+  const toDate = document.getElementById("exportTo").value || selectedDate;
+
   let rows = [];
   const headers = ["Employee Name","Date","Site Name","Site In","Site Out","Total Hours","Overtime Hours"];
   rows.push(headers.join(","));
 
-  document.querySelectorAll("#employeeTable tr").forEach((tr,i)=>{
-    if(i===0) return;
-    let cols=[];
-    tr.querySelectorAll("td").forEach(td=>{
-      if(td.querySelector("input")) cols.push(td.querySelector("input").value);
-      else cols.push(td.innerText);
+  const allDates = Object.keys(allData).sort();
+  const datesToExport = allDates.filter(d => d >= fromDate && d <= toDate);
+
+  datesToExport.forEach(date => {
+    teams.forEach(team => {
+      team.employees.forEach(emp => {
+        const empData = allData[date]?.[emp.id];
+        if (!empData) return;
+
+        const siteIn = empData.in || "";
+        const siteOut = empData.out || "";
+        const siteName = empData.site || emp.site;
+
+        // calculate total and overtime for export
+        let totalHours = "";
+        let overtimeHours = "";
+        if(siteIn && siteOut){
+          const [inH,inM] = siteIn.split(":").map(Number);
+          const [outH,outM] = siteOut.split(":").map(Number);
+          let diff = (outH*60+outM-(inH*60+inM))/60;
+          if(diff<0) diff+=24;
+          totalHours = diff.toFixed(2);
+
+          const d = new Date(date);
+          if(d.getDay()===0 || publicHolidays.includes(date)){
+            overtimeHours = diff.toFixed(2);
+          }else{
+            overtimeHours = diff>9?(diff-9).toFixed(2):"0";
+          }
+        }
+
+        const row = [emp.name, date, siteName, siteIn, siteOut, totalHours, overtimeHours];
+        rows.push(row.join(","));
+      });
     });
-    rows.push(cols.join(","));
   });
 
   const blob = new Blob([rows.join("\n")], {type:"text/csv"});
@@ -383,14 +414,6 @@ function updateSavedDatesList() {
     };
     savedDatesList.appendChild(li);
   });
-}
-
-// ==========================
-// Get current time
-// ==========================
-function getCurrentTime() {
-  const now = new Date();
-  return `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
 }
 
 // ==========================

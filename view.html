@@ -3,35 +3,61 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Employee Hours Shareable View</title>
+<title>Employee Overview</title>
 <style>
-body{ font-family:Arial,sans-serif; background:#f0f8ff; padding:20px;}
-table{ width:100%; border-collapse:collapse; }
-th,td{ border:1px solid #333; padding:8px; text-align:center;}
-th{ background:#f7931e; color:white;}
-tr:nth-child(even){ background:#e0e0e0; }
+  body { font-family: Arial; background:#f0f4f8; color:#333; padding:20px; }
+  h1 { text-align:center; color:#262e87; }
+  table { width:100%; border-collapse: collapse; margin-top:20px; background:#fff; box-shadow:0 4px 8px rgba(0,0,0,0.1); }
+  th, td { padding:12px 15px; text-align:center; }
+  th { background: linear-gradient(to right,#f04e23,#f7931e); color:#fff; font-size:16px; }
+  tr:nth-child(even){ background:#f9f9f9; }
+  tr:hover { background:#ffe0b2; }
+  td.count { font-weight:bold; color:#3a2b7c; }
 </style>
 </head>
 <body>
-<h2>Shareable Employee Data</h2>
-<table id="summaryTable">
-  <tr><th>Date</th><th>Site Name</th><th>No. of Team Members</th></tr>
+
+<h1>Employee Site Overview</h1>
+
+<table id="overviewTable">
+  <tr>
+    <th>Date</th>
+    <th>Site Name</th>
+    <th>No of Team Members</th>
+  </tr>
 </table>
 
 <script>
-// Load exported data.json
-fetch('data.json').then(res=>res.json()).then(data=>{
-  const table=document.getElementById("summaryTable");
-  Object.keys(data).sort().forEach(date=>{
-    const teamsCount = Object.values(data[date]||{}).reduce((acc,emp)=>{ if(emp.site) acc[emp.site]=(acc[emp.site]||0)+1; return acc; },{});
-    Object.keys(teamsCount).forEach(site=>{
-      const tr=table.insertRow();
-      tr.insertCell(0).textContent=date;
-      tr.insertCell(1).textContent=site;
-      tr.insertCell(2).textContent=teamsCount[site];
-    });
+const SHEET_URL = "https://script.google.com/macros/s/AKfycbylQUBqoASytb6skpiXFR46aKpQn52A6uID1QHXf4uOlpx4OVL19hNjRDWoG0PhcU1t/exec";
+
+fetch(SHEET_URL)
+.then(res => res.json())
+.then(data => {
+  const table = document.getElementById("overviewTable");
+
+  const grouped = {};
+  data.forEach(row=>{
+    const date = row["Date"];
+    const site = row["Site Name"];
+    if(!date || !site) return;
+    const key = date + "|" + site;
+    if(!grouped[key]) grouped[key]=0;
+    grouped[key]++;
   });
-});
+
+  Object.keys(grouped).sort().forEach(key=>{
+    const [date, site] = key.split("|");
+    const tr = document.createElement("tr");
+
+    const tdDate = document.createElement("td"); tdDate.textContent=date; tr.appendChild(tdDate);
+    const tdSite = document.createElement("td"); tdSite.textContent=site; tr.appendChild(tdSite);
+    const tdCount = document.createElement("td"); tdCount.textContent=grouped[key]; tdCount.className="count"; tr.appendChild(tdCount);
+
+    table.appendChild(tr);
+  });
+})
+.catch(err=>console.error("Error fetching data:", err));
 </script>
+
 </body>
 </html>

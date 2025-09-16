@@ -87,25 +87,42 @@ document.getElementById("shareBtn").addEventListener("click", () => {
 // ==========================
 // Save + Push to Google Sheets
 // ==========================
-async function pushToGoogleSheet(date,data){
-  await fetch("https://script.google.com/macros/s/AKfycbxG_etzGXWEg9uK9TFciAKLp7_eJaWY_P-dO3LtNWNrvzRch7xuJ0xn3Xm7PFTUXlQt/exec",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({date,data})
+async function pushToGoogleSheet(date, data) {
+  const payload = [];
+  Object.values(data).forEach(emp=>{
+    payload.push({
+      date: date,
+      team: emp.team,
+      name: emp.name,
+      site: emp.site,
+      in: emp.in || "",
+      out: emp.out || "",
+      totalHours: emp.totalHours || "",
+      overtimeHours: emp.overtimeHours || ""
+    });
+  });
+
+  await fetch("https://script.google.com/macros/s/AKfycbwPMkCKbLp96mClvwL6DhXmZkXuEuUjLkDwuYKxzTCPWBPURokBjPyGkg5xOX-CXvmc/exec", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(payload)
   });
 }
 
+// Save Button
 document.getElementById("saveBtn").addEventListener("click", async ()=>{
   saveAllData();
   updateSavedDatesList();
 
-  if(currentUser){
-    const dataToSend = allData[selectedDate];
-    await pushToGoogleSheet(selectedDate,dataToSend);
-    alert("Data saved and synced for "+selectedDate);
-  } else {
-    alert("Please login with Google first!");
-  }
+  const dataToSend = {};
+  teams.forEach(team=>{
+    team.employees.forEach(emp=>{
+      if(!dataToSend[emp.id]) dataToSend[emp.id] = {...emp};
+    });
+  });
+
+  await pushToGoogleSheet(selectedDate, dataToSend);
+  alert("Data saved and synced!");
 });
 
 // ==========================

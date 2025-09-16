@@ -1,38 +1,56 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>View Employee Hours</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Employee Summary</title>
+<style>
+body { font-family: Arial, sans-serif; padding: 20px; }
+table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+th, td { border: 1px solid #333; padding: 8px; text-align: left; }
+th { background-color: #f04e23; color: white; }
+</style>
 </head>
 <body>
-  <h2>Employee Hours (Read-Only)</h2>
-  <table id="viewTable">
-    <tr>
-      <th>Date</th>
-      <th>Site Name</th>
-      <th>No. of Team Members</th>
-    </tr>
-  </table>
+
+<h2>Employee Summary (All Dates)</h2>
+<table id="summaryTable">
+  <tr>
+    <th>Date</th>
+    <th>Site Name</th>
+    <th>No. of Team Members</th>
+  </tr>
+</table>
 
 <script>
-  async function loadView() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const date = urlParams.get("date");
+const sheetURL = "https://script.google.com/macros/s/AKfycbxG_etzGXWEg9uK9TFciAKLp7_eJaWY_P-dO3LtNWNrvzRch7xuJ0xn3Xm7PFTUXlQt/exec"; // Replace with your web app URL
 
-    const res = await fetch("https://script.google.com/macros/s/AKfycbxG_etzGXWEg9uK9TFciAKLp7_eJaWY_P-dO3LtNWNrvzRch7xuJ0xn3Xm7PFTUXlQt/exec" + date);
-    const data = await res.json();
+fetch(sheetURL)
+  .then(res => res.json())
+  .then(data => {
+    const table = document.getElementById("summaryTable");
 
-    const table = document.getElementById("viewTable");
+    // Group data by Date and Site
+    const grouped = {};
     data.forEach(row => {
-      const tr = table.insertRow();
-      tr.insertCell(0).textContent = row.date;
-      tr.insertCell(1).textContent = row.site;
-      tr.insertCell(2).textContent = row.count;
+      const date = row["Date"];
+      const site = row["Site Name"] || "—";
+      if(!grouped[date]) grouped[date] = {};
+      if(!grouped[date][site]) grouped[date][site] = 0;
+      grouped[date][site]++;
     });
-  }
-  loadView();
+
+    Object.keys(grouped).sort().forEach(date => {
+      Object.keys(grouped[date]).forEach(site => {
+        const row = table.insertRow();
+        row.insertCell(0).textContent = date;
+        row.insertCell(1).textContent = site;
+        row.insertCell(2).textContent = grouped[date][site];
+      });
+    });
+  })
+  .catch(err => console.error(err));
 </script>
+
 </body>
 </html>

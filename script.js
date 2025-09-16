@@ -102,7 +102,7 @@ async function pushToGoogleSheet(date, data) {
     });
   });
 
-  await fetch("https://script.google.com/macros/s/AKfycbwaZruYkwMAqs9oDasaPHbinOqwnLAvy_9NlwDwPQSEONcG56ZTIhCXco7FRPaFYEg_/exec", {
+  await fetch("https://script.google.com/macros/s/AKfycby5D9ULBJf17kkAQBEEpVICL0t-CttRT0iRgncZu_vHoptEJxdKiGJ9WihvWHAJwkuC/exec", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify(payload)

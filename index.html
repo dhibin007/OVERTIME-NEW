@@ -1,15 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Employee Working Hours</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Employee Working Hours</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 <header>
   <button id="hamburgerBtn">☰ Teams</button>
   <h2>Employee Working Hours</h2>
+  <div id="g_id_onload"
+       data-client_id="673912261065-pg97ssu1q4ra3rhldpfhkcodr7a488h7.apps.googleusercontent.com"
+       data-callback="onGoogleLogin"></div>
+  <div class="g_id_signin" data-type="standard"></div>
 </header>
 
 <aside id="sidebar">
@@ -21,6 +26,7 @@
     <label for="workDate">Select Date: </label>
     <input type="date" id="workDate">
     <button id="saveBtn">Save</button>
+    <button id="shareBtn">Get Shareable Link</button>
   </div>
 
   <div>

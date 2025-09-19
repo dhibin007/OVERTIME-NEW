@@ -307,5 +307,56 @@ buildEmployeeTable();
 updateSavedDatesList();
 
 </script>
+
+<script>
+// ==========================
+// Save Button - Local + Google Sheets
+// ==========================
+document.getElementById("saveBtn").addEventListener("click", async () => {
+  // 1. Save locally
+  saveAllData();
+  updateSavedDatesList();
+
+  const date = document.getElementById("workDate").value;
+
+  // 2. Collect first site + total team members
+  let site = "";
+  let teamCount = 0;
+  teams.forEach(team => {
+    if (team.employees.length > 0) {
+      teamCount += team.employees.length;
+      team.employees.forEach(emp => {
+        if (!site && emp.site) site = emp.site;
+      });
+    }
+  });
+
+  let entry = {
+    date: date,
+    site: site || "N/A",
+    team: teamCount
+  };
+
+  // 3. Upload to Google Sheets
+  try {
+    const response = await fetch("https://script.google.com/macros/s/AKfycbz3cCt4x9T1ugWtaUZBcm3toy7sUCdndJCcqeCH5lPgVZvLp9dVNVvVmNGTmdqbmw7USg/exec", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(entry)
+    });
+
+    if (response.ok) {
+      alert("✅ Data saved locally & uploaded to Google Sheet!");
+    } else {
+      alert("⚠️ Saved locally, but failed to upload to Google Sheet (bad response).");
+      console.error(await response.text());
+    }
+  } catch (err) {
+    alert("⚠️ Saved locally, but failed to upload to Google Sheet (network error).");
+    console.error(err);
+  }
+});
+</script>
+
 </body>
 </html>

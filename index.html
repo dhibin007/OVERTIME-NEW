@@ -67,6 +67,12 @@ let allData = JSON.parse(localStorage.getItem("allData")) || {};
 let selectedDate = new Date().toISOString().split("T")[0];
 const publicHolidays = ["2025-01-01","2025-03-30","2025-03-31","2025-04-01","2025-04-02","2025-06-05","2025-06-06","2025-06-07","2025-06-08","2025-06-27","2025-09-05","2025-12-02","2025-12-03","2025-12-30","2025-12-31"];
 
+// extend team objects with default site in/out if missing
+teams.forEach(team=>{
+  if(!team.siteIn) team.siteIn="";
+  if(!team.siteOut) team.siteOut="";
+});
+
 function saveTeams(){ localStorage.setItem("teams", JSON.stringify(teams)); }
 function saveAllData(){ localStorage.setItem("allData", JSON.stringify(allData)); }
 
@@ -97,6 +103,22 @@ function buildHamburgerMenu(){
     const teamDiv=document.createElement("div");
     const title=document.createElement("h4"); title.textContent=team.name; teamDiv.appendChild(title);
 
+    // Site In / Out Inputs
+    const siteIn=document.createElement("input");
+    siteIn.type="time"; siteIn.value=team.siteIn||"";
+    siteIn.onchange=()=>{ team.siteIn=siteIn.value; saveTeams(); };
+
+    const siteOut=document.createElement("input");
+    siteOut.type="time"; siteOut.value=team.siteOut||"";
+    siteOut.onchange=()=>{ team.siteOut=siteOut.value; saveTeams(); };
+
+    const timeWrap=document.createElement("div");
+    timeWrap.innerHTML="<small>Default Site In/Out:</small><br>";
+    timeWrap.appendChild(siteIn);
+    timeWrap.appendChild(siteOut);
+    teamDiv.appendChild(timeWrap);
+
+    // Employee List
     const ul=document.createElement("ul"); ul.dataset.team=team.name;
     team.employees.forEach(emp=>{
       const li=document.createElement("li"); li.textContent=emp.name+" ("+emp.site+")"; ul.appendChild(li);
@@ -138,8 +160,13 @@ function addRow(emp){
   row.insertCell(1).textContent=selectedDate;
 
   const siteInput=document.createElement("input"); siteInput.value=allData[selectedDate][emp.id]?.site||emp.site; row.insertCell(2).appendChild(siteInput);
-  const inInput=document.createElement("input"); inInput.type="time"; inInput.value=allData[selectedDate][emp.id]?.in||""; row.insertCell(3).appendChild(inInput);
-  const outInput=document.createElement("input"); outInput.type="time"; outInput.value=allData[selectedDate][emp.id]?.out||""; row.insertCell(4).appendChild(outInput);
+
+  const team=teams.find(t=>t.name===emp.team);
+
+  const inInput=document.createElement("input"); inInput.type="time"; inInput.value=allData[selectedDate][emp.id]?.in||team?.siteIn||""; row.insertCell(3).appendChild(inInput);
+
+  const outInput=document.createElement("input"); outInput.type="time"; outInput.value=allData[selectedDate][emp.id]?.out||team?.siteOut||""; row.insertCell(4).appendChild(outInput);
+
   const totalCell=row.insertCell(5); const overtimeCell=row.insertCell(6);
 
   function updateAndSave(){
@@ -157,7 +184,6 @@ function addRow(emp){
   siteInput.addEventListener("change", updateAndSave);
 
   calculateHours(inInput,outInput,totalCell,overtimeCell);
-
   const d=new Date(selectedDate);
   if(d.getDay()===0||publicHolidays.includes(selectedDate)) row.style.backgroundColor="yellow";
 }

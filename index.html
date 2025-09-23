@@ -127,11 +127,17 @@ function buildHamburgerMenu(){
     team.employees.forEach(emp=>{
       const li=document.createElement("li"); li.className="employee-item";
       const delBtn=document.createElement("button"); delBtn.textContent="❌";
-      // stop propagation to prevent drag conflicts
-      delBtn.addEventListener("click", (e)=>{ e.stopPropagation(); e.preventDefault(); 
+
+      function deleteEmployee(){ 
         team.employees = team.employees.filter(e=>e.id!==emp.id);
         saveTeams(); buildHamburgerMenu(); buildEmployeeTable(filterInput.value.trim().toLowerCase()); updateShareLink();
-      });
+      }
+
+      // Desktop click
+      delBtn.addEventListener("click", (e)=>{ e.stopPropagation(); e.preventDefault(); deleteEmployee(); });
+      // Mobile touch
+      delBtn.addEventListener("touchend", (e)=>{ e.stopPropagation(); e.preventDefault(); deleteEmployee(); });
+
       li.appendChild(delBtn); li.appendChild(document.createTextNode(emp.name+" ("+emp.site+")"));
       li.dataset.empId = emp.id;
       ul.appendChild(li);

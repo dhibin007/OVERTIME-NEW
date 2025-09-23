@@ -78,7 +78,12 @@ function saveAllData(){ localStorage.setItem("allData", JSON.stringify(allData))
 // Date Picker
 const dateInput = document.getElementById("workDate");
 dateInput.value = selectedDate;
-dateInput.addEventListener("change", ()=>{ selectedDate=dateInput.value; buildEmployeeTable(filterInput.value.trim().toLowerCase()); updateShareLink(); });
+const filterInput = document.getElementById("filterInput");
+dateInput.addEventListener("change", ()=>{
+  selectedDate=dateInput.value;
+  buildEmployeeTable(filterInput.value.trim().toLowerCase());
+  updateShareLink();
+});
 const urlParams = new URLSearchParams(window.location.search);
 const dateParam = urlParams.get("date");
 if(dateParam){ selectedDate = dateParam; dateInput.value=selectedDate; }
@@ -105,6 +110,7 @@ function buildHamburgerMenu(){
     const siteOutInput=document.createElement("input"); siteOutInput.type="time"; siteOutInput.value=team.siteOut;
     const applyBtn=document.createElement("button"); applyBtn.textContent="Apply to Team"; applyBtn.onclick=()=>{
       team.site=siteInput.value; team.siteIn=siteInInput.value; team.siteOut=siteOutInput.value;
+      if(!allData[selectedDate]) allData[selectedDate]={};
       team.employees.forEach(emp=>{
         if(!allData[selectedDate][emp.id]) allData[selectedDate][emp.id]={};
         allData[selectedDate][emp.id].site=team.site;
@@ -120,10 +126,12 @@ function buildHamburgerMenu(){
     const ul=document.createElement("ul"); ul.dataset.team=team.name;
     team.employees.forEach(emp=>{
       const li=document.createElement("li"); li.className="employee-item";
-      const delBtn=document.createElement("button"); delBtn.textContent="❌"; delBtn.onclick=()=>{
+      const delBtn=document.createElement("button"); delBtn.textContent="❌";
+      // stop propagation to prevent drag conflicts
+      delBtn.addEventListener("click", (e)=>{ e.stopPropagation(); e.preventDefault(); 
         team.employees = team.employees.filter(e=>e.id!==emp.id);
         saveTeams(); buildHamburgerMenu(); buildEmployeeTable(filterInput.value.trim().toLowerCase()); updateShareLink();
-      };
+      });
       li.appendChild(delBtn); li.appendChild(document.createTextNode(emp.name+" ("+emp.site+")"));
       li.dataset.empId = emp.id;
       ul.appendChild(li);
@@ -164,8 +172,7 @@ function moveEmployeeToTeam(empId,newTeamName){
 }
 
 // ==========================
-// Employee Table + Filter + Overtime Summary
-const filterInput=document.getElementById("filterInput");
+// Table & Filter with Overtime
 const overtimeSummary = document.getElementById("overtimeSummary");
 filterInput.addEventListener("input", ()=>{ buildEmployeeTable(filterInput.value.trim().toLowerCase()); });
 
@@ -175,32 +182,31 @@ function buildEmployeeTable(filterText=""){
   if(!allData[selectedDate]) allData[selectedDate]={};
   let totalOvertime=0;
   teams.forEach(team=>team.employees.forEach(emp=>{
-    if(emp.name.toLowerCase().includes(filterText)){
-      const row=table.insertRow();
-      row.insertCell(0).textContent=emp.name;
-      row.insertCell(1).textContent=selectedDate;
-      const siteInput=document.createElement("input"); siteInput.value=allData[selectedDate][emp.id]?.site||emp.site; row.insertCell(2).appendChild(siteInput);
-      const inInput=document.createElement("input"); inInput.type="time"; inInput.value=allData[selectedDate][emp.id]?.in||team.siteIn||""; row.insertCell(3).appendChild(inInput);
-      const outInput=document.createElement("input"); outInput.type="time"; outInput.value=allData[selectedDate][emp.id]?.out||team.siteOut||""; row.insertCell(4).appendChild(outInput);
-      const totalCell=row.insertCell(5); const overtimeCell=row.insertCell(6);
-
-      function updateAndSave(){
-        calculateHours(inInput,outInput,totalCell,overtimeCell);
-        if(!allData[selectedDate][emp.id]) allData[selectedDate][emp.id]={};
-        allData[selectedDate][emp.id].in=inInput.value;
-        allData[selectedDate][emp.id].out=outInput.value;
-        allData[selectedDate][emp.id].site=siteInput.value;
-        saveAllData(); updateSavedDatesList(); updateShareLink();
-      }
-      inInput.addEventListener("change", updateAndSave);
-      outInput.addEventListener("change", updateAndSave);
-      siteInput.addEventListener("change", updateAndSave);
-
-      const [totalHours,overtimeHours] = calculateHours(inInput,outInput,totalCell,overtimeCell);
-      totalOvertime += parseFloat(overtimeHours);
+    if(filterText && !emp.name.toLowerCase().includes(filterText)) return;
+    const row=table.insertRow();
+    row.insertCell(0).textContent=emp.name;
+    row.insertCell(1).textContent=selectedDate;
+    const siteInput=document.createElement("input"); siteInput.value=allData[selectedDate][emp.id]?.site||emp.site;
+    row.insertCell(2).appendChild(siteInput);
+    const teamObj = teams.find(t=>t.name===emp.team);
+    const inInput=document.createElement("input"); inInput.type="time"; inInput.value=allData[selectedDate][emp.id]?.in||teamObj?.siteIn||"";
+    const outInput=document.createElement("input"); outInput.type="time"; outInput.value=allData[selectedDate][emp.id]?.out||teamObj?.siteOut||"";
+    row.insertCell(3).appendChild(inInput); row.insertCell(4).appendChild(outInput);
+    const totalCell=row.insertCell(5); const overtimeCell=row.insertCell(6);
+    function updateAndSave(){ 
+      const [totalH, overtimeH]=calculateHours(inInput,outInput,totalCell,overtimeCell);
+      totalOvertime += parseFloat(overtimeH);
+      if(!allData[selectedDate][emp.id]) allData[selectedDate][emp.id]={};
+      allData[selectedDate][emp.id].in=inInput.value; allData[selectedDate][emp.id].out=outInput.value;
+      allData[selectedDate][emp.id].site=siteInput.value; saveAllData();
+      overtimeSummary.textContent="Total Overtime: "+totalOvertime.toFixed(2)+" hrs";
     }
+    inInput.addEventListener("change", updateAndSave);
+    outInput.addEventListener("change", updateAndSave);
+    siteInput.addEventListener("change", updateAndSave);
+    calculateHours(inInput,outInput,totalCell,overtimeCell);
   }));
-  overtimeSummary.textContent = "Total Overtime: "+totalOvertime.toFixed(2)+" hrs";
+  overtimeSummary.textContent="Total Overtime: "+totalOvertime.toFixed(2)+" hrs";
 }
 
 function calculateHours(inInput,outInput,totalCell,overtimeCell){
@@ -209,10 +215,9 @@ function calculateHours(inInput,outInput,totalCell,overtimeCell){
   totalCell.style.background=""; overtimeCell.style.background="";
   const [inH,inM]=inTime.split(":").map(Number); const [outH,outM]=outTime.split(":").map(Number);
   let diff=(outH*60+outM-(inH*60+inM))/60; if(diff<0) diff+=24; totalCell.textContent=diff.toFixed(2);
-  const d=new Date(selectedDate);
+  const d=new Date(selectedDate); 
   const overtime=([5,6].includes(d.getDay())||publicHolidays.includes(selectedDate))?diff:(diff>9?diff-9:0);
-  overtimeCell.textContent=overtime.toFixed(2);
-  return [diff.toFixed(2), overtime.toFixed(2)];
+  overtimeCell.textContent=overtime.toFixed(2); return [diff.toFixed(2),overtime.toFixed(2)];
 }
 
 // ==========================
@@ -276,5 +281,6 @@ document.getElementById("saveBtn").addEventListener("click", ()=>{ saveAllData()
 // Initialize
 buildHamburgerMenu(); buildEmployeeTable(); updateSavedDatesList(); updateShareLink();
 </script>
+
 </body>
 </html>

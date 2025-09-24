@@ -3,62 +3,226 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Employee Overview</title>
+<title>Employee Hours App</title>
 <style>
-  body { font-family: Arial; background:#f0f4f8; color:#333; padding:20px; }
-  h1 { text-align:center; color:#262e87; }
-  table { width:100%; border-collapse: collapse; margin-top:20px; background:#fff; box-shadow:0 4px 8px rgba(0,0,0,0.1); }
-  th, td { padding:12px 15px; text-align:center; }
-  th { background: linear-gradient(to right,#f04e23,#f7931e); color:#fff; font-size:16px; }
-  tr:nth-child(even){ background:#f9f9f9; }
-  tr:hover { background:#ffe0b2; }
-  td.count { font-weight:bold; color:#3a2b7c; }
+body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f5f5f5; }
+header { background:#262e87; color:white; padding:10px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; position:sticky; top:0; z-index:1001; }
+#hamburgerBtn { font-size:24px; cursor:pointer; margin-right:10px; }
+#sidebar { width:280px; background:#3a2b7c; color:white; position:fixed; top:0; left:-290px; height:100%; overflow:auto; transition:0.3s; padding:10px; z-index:1002; }
+#sidebar.open { left:0; }
+#overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.3); display:none; z-index:1001; }
+button { cursor:pointer; margin:2px; padding:4px 8px; border:none; border-radius:4px; background:#f04e23; color:white; }
+table { width:100%; border-collapse:collapse; margin-top:10px; }
+th, td { border:1px solid #333; padding:6px; text-align:center; font-size:0.9em; }
+th { background:#f7931e; color:white; }
+input[type=time], input[type=text], input[type=date], #filterInput { width:90%; padding:4px; margin:2px 0; }
+#savedDatesList li { list-style:none; background:#f04e23; color:white; padding:4px; margin:2px 0; border-radius:3px; cursor:pointer; font-size:0.9em; }
+#savedDatesList li:hover { background:#f7931e; }
+.employee-item { display:flex; align-items:center; justify-content:flex-start; padding:2px 4px; margin:2px 0; background:#f7931e; border-radius:4px; color:white; font-size:0.9em; }
+.employee-item button { margin-right:5px; background:red; color:white; border:none; border-radius:3px; cursor:pointer; }
+.collapsible { background:#262e87; color:white; cursor:pointer; padding:8px; width:100%; border:none; text-align:left; outline:none; font-size:0.9em; border-radius:3px; margin-top:5px; }
+.active, .collapsible:hover { background:#3a2b7c; }
+.content { display:none; overflow:hidden; padding-left:10px; }
+#overtimeSummary { margin-top:10px; font-weight:bold; color:#262e87; }
+@media(max-width:600px){
+  table, th, td, input { font-size:0.8em; }
+  header { flex-direction: column; align-items:flex-start; }
+  #sidebar { width:220px; }
+}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 </head>
 <body>
 
-<h1>Employee Site Overview</h1>
+<header>
+  <span id="hamburgerBtn">☰ Menu</span>
+  <div style="display:flex; flex-wrap:wrap; gap:5px; margin-top:5px;">
+    <input type="date" id="workDate">
+    <button id="saveBtn">Save Data</button>
+    <button id="exportCSVBtn">Export CSV</button>
+    <button id="clearDataBtn">Clear Data</button>
+    <input type="date" id="exportFrom" title="From Date">
+    <input type="date" id="exportTo" title="To Date">
+    <input type="text" id="filterInput" placeholder="Filter Employee Name">
+    <button id="shareTeamCountBtn">Team Count</button>
+  </div>
+  <div id="overtimeSummary">Total Overtime: 0 hrs</div>
+</header>
 
-<table id="overviewTable">
-  <tr>
-    <th>Date</th>
-    <th>Site Name</th>
-    <th>No of Team Members</th>
-  </tr>
-</table>
+<div id="overlay"></div>
+
+<div id="sidebar">
+  <button class="collapsible">Teams</button>
+  <div class="content" id="teamsContent"></div>
+
+  <button class="collapsible">Employee List</button>
+  <div class="content">
+    <ul id="masterList"></ul>
+    <button onclick="addToMasterList()">➕ Add Master Employee</button>
+  </div>
+
+  <button class="collapsible">Site List</button>
+  <div class="content">
+    <ul id="masterSiteList"></ul>
+    <button onclick="addToMasterSiteList()">➕ Add Site</button>
+  </div>
+</div>
+
+<main style="margin-left:10px; padding:10px;">
+  <table id="employeeTable"></table>
+</main>
 
 <script>
-const SHEET_URL = "https://script.google.com/macros/s/AKfycby5D9ULBJf17kkAQBEEpVICL0t-CttRT0iRgncZu_vHoptEJxdKiGJ9WihvWHAJwkuC/exec";
+// ==========================
+// Global Data
+let teams = JSON.parse(localStorage.getItem("teams")) || [
+  { name:"Team 1", site:"Site A", siteIn:"", siteOut:"", employees:[] },
+  { name:"Team 2", site:"Site B", siteIn:"", siteOut:"", employees:[] },
+  { name:"Team 3", site:"Site C", siteIn:"", siteOut:"", employees:[] },
+  { name:"Team 4", site:"Site D", siteIn:"", siteOut:"", employees:[] },
+  { name:"OFF", site:"", siteIn:"", siteOut:"", employees:[] }
+];
+let masterEmployees = JSON.parse(localStorage.getItem("masterEmployees")) || [];
+let masterSites = JSON.parse(localStorage.getItem("masterSites")) || [];
+let allData = JSON.parse(localStorage.getItem("allData")) || {};
+let selectedDate = new Date().toISOString().split("T")[0];
 
-fetch(SHEET_URL)
-.then(res => res.json())
-.then(data => {
-  const table = document.getElementById("overviewTable");
-  const grouped = {};
+function saveTeams(){ localStorage.setItem("teams", JSON.stringify(teams)); }
+function saveMaster(){ localStorage.setItem("masterEmployees", JSON.stringify(masterEmployees)); }
+function saveMasterSites(){ localStorage.setItem("masterSites", JSON.stringify(masterSites)); }
+function saveAllData(){ localStorage.setItem("allData", JSON.stringify(allData)); }
 
-  data.forEach(row => {
-    const date = row["Date"];
-    const site = row["Site Name"];
-    if (!date || !site) return;
+// ==========================
+// Date Picker
+const dateInput = document.getElementById("workDate");
+dateInput.value = selectedDate;
+const filterInput = document.getElementById("filterInput");
+dateInput.addEventListener("change", ()=>{ selectedDate=dateInput.value; buildEmployeeTable(filterInput.value.trim().toLowerCase()); });
 
-    const key = date + "|" + site;
-    if (!grouped[key]) grouped[key] = 0;
-    grouped[key]++;
+// ==========================
+// Sidebar
+const sidebar = document.getElementById("sidebar");
+const overlay = document.getElementById("overlay");
+const hamburgerBtn = document.getElementById("hamburgerBtn");
+hamburgerBtn.addEventListener("click", ()=>{ sidebar.classList.add("open"); overlay.style.display="block"; });
+overlay.addEventListener("click", ()=>{ sidebar.classList.remove("open"); overlay.style.display="none"; });
+
+// Collapsible
+document.addEventListener("click", e=>{
+  if(e.target.classList.contains("collapsible")){
+    e.target.classList.toggle("active");
+    let content = e.target.nextElementSibling;
+    content.style.display = content.style.display==="block"?"none":"block";
+  }
+});
+
+// ==========================
+// Share Team Count Redirect
+document.getElementById("shareTeamCountBtn").addEventListener("click", ()=>{
+  window.open("team_count.html","_blank");
+});
+
+// ==========================
+// Clear Data
+document.getElementById("clearDataBtn").addEventListener("click", ()=>{
+  if(confirm("Clear all data for this date?")){
+    allData[selectedDate]={};
+    saveAllData(); buildEmployeeTable(filterInput.value.trim().toLowerCase());
+    alert("✅ Data cleared for "+selectedDate);
+  }
+});
+
+// ==========================
+// Master Employee Functions
+function addToMasterList(){
+  const name = prompt("Enter employee name:"); if(!name) return;
+  if(masterEmployees.find(e=>e===name)) return alert("Employee already exists");
+  masterEmployees.push(name); saveMaster(); buildMasterList();
+}
+function buildMasterList(){
+  const ul = document.getElementById("masterList"); ul.innerHTML="";
+  masterEmployees.forEach(name=>{
+    const li = document.createElement("li"); li.textContent=name;
+    const del = document.createElement("button"); del.textContent="❌";
+    del.onclick=()=>{ masterEmployees = masterEmployees.filter(e=>e!==name); saveMaster(); buildMasterList(); };
+    li.prepend(del); ul.appendChild(li);
   });
+}
+buildMasterList();
 
-  Object.keys(grouped).sort().forEach(key => {
-    const [date, site] = key.split("|");
-    const tr = document.createElement("tr");
-
-    const tdDate = document.createElement("td"); tdDate.textContent = date; tr.appendChild(tdDate);
-    const tdSite = document.createElement("td"); tdSite.textContent = site; tr.appendChild(tdSite);
-    const tdCount = document.createElement("td"); tdCount.textContent = grouped[key]; tdCount.className="count"; tr.appendChild(tdCount);
-
-    table.appendChild(tr);
+// ==========================
+// Master Site Functions
+function addToMasterSiteList(){
+  const name = prompt("Enter site name:"); if(!name) return;
+  if(masterSites.includes(name)) return alert("Site already exists");
+  masterSites.push(name); saveMasterSites(); buildMasterSiteList();
+}
+function buildMasterSiteList(){
+  const ul = document.getElementById("masterSiteList"); ul.innerHTML="";
+  masterSites.forEach(name=>{
+    const li = document.createElement("li"); li.textContent=name;
+    const del = document.createElement("button"); del.textContent="❌";
+    del.onclick=()=>{ masterSites = masterSites.filter(e=>e!==name); saveMasterSites(); buildMasterSiteList(); };
+    li.prepend(del); ul.appendChild(li);
   });
-})
-.catch(err => console.error("Error fetching data:", err));
+}
+buildMasterSiteList();
+
+// ==========================
+// Build Teams Dropdown
+function buildTeamsContent(){
+  const container = document.getElementById("teamsContent");
+  container.innerHTML="";
+
+  teams.forEach(team=>{
+    const teamDiv = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = team.name;
+    teamDiv.appendChild(title);
+
+    // Employee multi-select dropdown
+    const select = document.createElement("select");
+    select.style.width="100%"; select.style.margin="5px 0"; select.multiple = true;
+    masterEmployees.forEach(emp=>{
+      const option = document.createElement("option"); option.value = emp; option.textContent = emp;
+      if(team.employees.find(e=>e.name===emp)) option.selected = true;
+      select.appendChild(option);
+    });
+
+    select.addEventListener("change", ()=>{
+      const selectedNames = Array.from(select.selectedOptions).map(o=>o.value);
+      team.employees = selectedNames.map(n=>({id:Date.now()+Math.random(), name:n, team:team.name}));
+      saveTeams();
+      buildEmployeeTable(filterInput.value.trim().toLowerCase());
+    });
+
+    teamDiv.appendChild(select);
+    container.appendChild(teamDiv);
+  });
+}
+buildTeamsContent();
+
+// ==========================
+// Employee Table (simplified)
+function buildEmployeeTable(filter=""){
+  const table = document.getElementById("employeeTable");
+  table.innerHTML = "<tr><th>Employee</th><th>Date</th><th>Site</th><th>In</th><th>Out</th><th>Total</th></tr>";
+  teams.forEach(team=>{
+    team.employees.forEach(emp=>{
+      if(filter && !emp.name.toLowerCase().includes(filter)) return;
+      const tr = table.insertRow();
+      tr.insertCell(0).textContent = emp.name;
+      tr.insertCell(1).textContent = selectedDate;
+      const site = allData[selectedDate]?.[emp.id]?.site || team.site || "N/A";
+      tr.insertCell(2).textContent = site;
+      tr.insertCell(3).textContent = allData[selectedDate]?.[emp.id]?.in || "";
+      tr.insertCell(4).textContent = allData[selectedDate]?.[emp.id]?.out || "";
+      tr.insertCell(5).textContent = "";
+    });
+  });
+}
+buildEmployeeTable();
+
 </script>
-
 </body>
 </html>

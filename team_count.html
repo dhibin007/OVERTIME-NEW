@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Team Count View</title>
+<style>
+body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f5f5f5; }
+header { background:#262e87; color:white; padding:10px; text-align:center; font-size:1.2em; }
+table { width:100%; border-collapse:collapse; margin-top:10px; }
+th, td { border:1px solid #333; padding:8px; text-align:center; font-size:0.9em; }
+th { background:#f04e23; color:white; }
+tr:nth-child(even) { background:#f9f9f9; }
+button { cursor:pointer; margin:5px; padding:6px 12px; border:none; border-radius:4px; background:#f7931e; color:white; font-size:0.9em; }
+@media(max-width:600px){ table, th, td, button { font-size:0.8em; } }
+</style>
+</head>
+<body>
+
+<header>Team Count View</header>
+<div style="padding:10px;">
+  <button id="shareBtn">Share WhatsApp</button>
+  <table id="teamTable">
+    <tr>
+      <th>Date</th>
+      <th>Site Name</th>
+      <th>Team Name</th>
+      <th>Team Count</th>
+    </tr>
+  </table>
+</div>
+
+<script>
+// Get date from URL
+const params = new URLSearchParams(window.location.search);
+const selectedDate = params.get("date");
+
+// Load teams and data
+const teams = JSON.parse(localStorage.getItem("teams")) || [];
+const allData = JSON.parse(localStorage.getItem("allData")) || {};
+
+// Build table
+const table = document.getElementById("teamTable");
+teams.forEach(team => {
+    if(team.name !== "OFF") {
+        const row = table.insertRow();
+        const cellDate = row.insertCell(0);
+        const cellSite = row.insertCell(1);
+        const cellTeam = row.insertCell(2);
+        const cellCount = row.insertCell(3);
+
+        cellDate.textContent = selectedDate;
+        cellSite.textContent = team.site || "No Site";
+        cellTeam.textContent = team.name;
+        cellCount.textContent = team.employees.length;
+    }
+});
+
+// Share to WhatsApp
+document.getElementById("shareBtn").addEventListener("click", ()=>{
+    let msg = `Team Count for ${selectedDate}:\n\n`;
+    teams.forEach(team=>{
+        if(team.name!=="OFF"){
+            const count = team.employees.length;
+            if(count>0) msg += `${team.name} (${team.site || "No Site"}): ${count} members\n`;
+        }
+    });
+    if(!msg) msg = "No team data for selected date.";
+    const waLink = "https://wa.me/?text=" + encodeURIComponent(msg);
+    window.open(waLink, "_blank");
+});
+</script>
+
+</body>
+</html>

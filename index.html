@@ -41,9 +41,9 @@ input[type=time], input[type=text], input[type=date], select, #filterInput { wid
     <button id="clearDataBtn">Clear Data</button>
     <input type="date" id="exportFrom" title="From Date">
     <input type="date" id="exportTo" title="To Date">
-    <button id="viewFilterBtn">View</button>
     <input type="text" id="filterInput" placeholder="Filter Employee Name">
     <button id="shareTeamCountBtn">Team Count</button>
+    <button id="viewFilterBtn">View</button>
   </div>
   <div id="overtimeSummary">Total Overtime: 0 hrs</div>
 </header>
@@ -91,6 +91,7 @@ let selectedDate = new Date().toISOString().split("T")[0];
 const dateInput = document.getElementById("workDate");
 dateInput.value = selectedDate;
 const filterInput = document.getElementById("filterInput");
+dateInput.addEventListener("change", ()=>{ selectedDate=dateInput.value; buildEmployeeTable(filterInput.value.trim().toLowerCase()); });
 
 // ==========================
 // Sidebar open/close
@@ -211,29 +212,21 @@ function buildTeamsContent(){
     team.employees.forEach(emp=>{
       const li=document.createElement("li"); li.className="employee-item";
       const delBtn=document.createElement("button"); delBtn.textContent="❌";
-      delBtn.onclick=()=>{ team.employees = team.employees.filter(e=>e.id!==emp.id); buildTeamsContent(); buildEmployeeTable(filterInput.value.trim().toLowerCase()); };
+      delBtn.onclick=()=>{
+        team.employees = team.employees.filter(e=>e.id!==emp.id);
+        if(allData[selectedDate]) delete allData[selectedDate][emp.id];
+        buildTeamsContent(); buildEmployeeTable(filterInput.value.trim().toLowerCase());
+        localStorage.setItem("teams", JSON.stringify(teams));
+        localStorage.setItem("allData", JSON.stringify(allData));
+      };
       li.appendChild(delBtn); li.appendChild(document.createTextNode(emp.name+(team.name!=="OFF"?` (${emp.site||team.site})`:"")));
       li.dataset.empId = emp.id;
       ul.appendChild(li);
     });
 
-    // Add Employee dropdown
-    const addSelect=document.createElement("select");
-    masterEmployees.forEach(name=>{
-      const option=document.createElement("option"); option.value=name; option.textContent=name;
-      addSelect.appendChild(option);
-    });
     const addBtn=document.createElement("button"); addBtn.textContent="➕ Add Employee";
-    addBtn.onclick=()=>{
-      const name=addSelect.value;
-      if(!name) return;
-      const emp={id:Date.now(), name:name, team:team.name, site:""};
-      team.employees.push(emp);
-      localStorage.setItem("teams", JSON.stringify(teams));
-      buildTeamsContent();
-      buildEmployeeTable(filterInput.value.trim().toLowerCase());
-    };
-    teamDiv.appendChild(ul); teamDiv.appendChild(addSelect); teamDiv.appendChild(addBtn);
+    addBtn.onclick=()=>addEmployeeToTeam(team.name);
+    teamDiv.appendChild(ul); teamDiv.appendChild(addBtn);
 
     new Sortable(ul,{group:'employees', animation:150, delay:150, delayOnTouchOnly:true, onEnd: evt=>{
       const empId=evt.item.dataset.empId;
@@ -243,6 +236,20 @@ function buildTeamsContent(){
 
     menu.appendChild(teamDiv);
   });
+}
+
+// Add employee from master list (as dropdown)
+function addEmployeeToTeam(teamName){
+  if(masterEmployees.length===0) return alert("Add employees in Master List first");
+  const select = document.createElement("select");
+  masterEmployees.forEach(emp=>{ const o=document.createElement("option"); o.value=o.textContent=emp; select.appendChild(o); });
+  const name = promptSelect("Select employee from dropdown", select);
+  if(!name) return;
+  const emp={id:Date.now(), name:name, team:teamName, site:""};
+  const team=teams.find(t=>t.name===teamName); team.employees.push(emp);
+  localStorage.setItem("teams", JSON.stringify(teams));
+  buildTeamsContent();
+  buildEmployeeTable(filterInput.value.trim().toLowerCase());
 }
 
 // Move employee between teams
@@ -257,6 +264,11 @@ function moveEmployeeToTeam(empId,newTeamName){
     buildTeamsContent();
     buildEmployeeTable(filterInput.value.trim().toLowerCase());
   }
+}
+
+// Simple promptSelect
+function promptSelect(title, selectElement){
+  return prompt(title+"\n"+Array.from(selectElement.options).map(o=>o.textContent).join("\n"));
 }
 
 // ==========================
@@ -313,54 +325,6 @@ function updateOvertimeSummary(){
 }
 
 // ==========================
-// Save Data
-document.getElementById("saveBtn").addEventListener("click", ()=>{
-  if(!allData[selectedDate]) allData[selectedDate]={};
-  teams.forEach(team=>team.employees.forEach(emp=>{
-    if(!allData[selectedDate][emp.id]) allData[selectedDate][emp.id]={};
-    allData[selectedDate][emp.id].site=emp.site||team.site;
-    allData[selectedDate][emp.id].in=emp.siteIn||team.siteIn;
-    allData[selectedDate][emp.id].out=emp.siteOut||team.siteOut;
-  }));
-  localStorage.setItem("allData", JSON.stringify(allData));
-  alert("✅ Data saved for "+selectedDate);
-});
-
-// ==========================
-// View Filter
-document.getElementById("viewFilterBtn").addEventListener("click", ()=>{
-  const fromDate=document.getElementById("exportFrom").value||selectedDate;
-  const toDate=document.getElementById("exportTo").value||selectedDate;
-  buildEmployeeTableByRange(fromDate,toDate);
-});
-
-function buildEmployeeTableByRange(fromDate,toDate){
-  const table=document.getElementById("employeeTable");
-  table.innerHTML=`<tr><th>Employee Name</th><th>Date</th><th>Site Name</th><th>Site In</th><th>Site Out</th><th>Total Hours</th><th>Overtime Hours</th></tr>`;
-  let totalOvertime=0;
-  Object.keys(allData).sort().filter(d=>d>=fromDate && d<=toDate).forEach(date=>{
-    teams.forEach(team=>team.employees.forEach(emp=>{
-      const empData=allData[date][emp.id]; if(!empData) return;
-      const row=table.insertRow();
-      row.insertCell(0).textContent=emp.name;
-      row.insertCell(1).textContent=date;
-      row.insertCell(2).textContent=empData.site||"";
-      row.insertCell(3).textContent=empData.in||"";
-      row.insertCell(4).textContent=empData.out||"";
-      let totalH=0,overtimeH=0;
-      if(empData.in && empData.out){
-        const [inH,inM]=empData.in.split(":").map(Number); const [outH,outM]=empData.out.split(":").map(Number);
-        let diff=(outH*60+outM-(inH*60+inM))/60; if(diff<0) diff+=24; totalH=diff; overtimeH=(diff>9?diff-9:0);
-      }
-      row.insertCell(5).textContent=totalH.toFixed(2);
-      row.insertCell(6).textContent=overtimeH.toFixed(2);
-      totalOvertime+=overtimeH;
-    }));
-  });
-  overtimeSummary.textContent="Total Overtime: "+totalOvertime.toFixed(2)+" hrs";
-}
-
-// ==========================
 // Export CSV
 document.getElementById("exportCSVBtn").addEventListener("click", ()=>{
   const fromDate=document.getElementById("exportFrom").value||selectedDate;
@@ -368,7 +332,7 @@ document.getElementById("exportCSVBtn").addEventListener("click", ()=>{
   let rows=[["Employee Name","Date","Site Name","Site In","Site Out","Total Hours","Overtime Hours"]];
   Object.keys(allData).sort().filter(d=>d>=fromDate && d<=toDate).forEach(date=>{
     teams.forEach(team=>team.employees.forEach(emp=>{
-      const empData=allData[date][emp.id]; if(!empData) return;
+      const empData=allData[date]?.[emp.id]; if(!empData) return;
       let total="", overtime="";
       if(empData.in && empData.out){
         const [inH,inM]=empData.in.split(":").map(Number); const [outH,outM]=empData.out.split(":").map(Number);
@@ -387,6 +351,18 @@ document.getElementById("exportCSVBtn").addEventListener("click", ()=>{
 document.getElementById("shareTeamCountBtn").addEventListener("click", ()=>{
   localStorage.setItem("teams", JSON.stringify(teams));
   window.open("team_count.html?date="+selectedDate,"_blank");
+});
+
+// ==========================
+// View Button for filter
+document.getElementById("viewFilterBtn").addEventListener("click", ()=>{ buildEmployeeTable(filterInput.value.trim().toLowerCase()); });
+
+// ==========================
+// Save button auto save
+document.getElementById("saveBtn").addEventListener("click", ()=>{
+  localStorage.setItem("teams", JSON.stringify(teams));
+  localStorage.setItem("allData", JSON.stringify(allData));
+  alert("✅ Data saved for "+selectedDate);
 });
 
 // ==========================

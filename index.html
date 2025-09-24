@@ -212,20 +212,13 @@ function buildTeamsContent(){
     team.employees.forEach(emp=>{
       const li=document.createElement("li"); li.className="employee-item";
       const delBtn=document.createElement("button"); delBtn.textContent="❌";
-      delBtn.onclick=()=>{
-        team.employees = team.employees.filter(e=>e.id!==emp.id);
-        if(allData[selectedDate]) delete allData[selectedDate][emp.id];
-        buildTeamsContent(); buildEmployeeTable(filterInput.value.trim().toLowerCase());
-        localStorage.setItem("teams", JSON.stringify(teams));
-        localStorage.setItem("allData", JSON.stringify(allData));
-      };
+      delBtn.onclick=()=>{ team.employees = team.employees.filter(e=>e.id!==emp.id); buildTeamsContent(); buildEmployeeTable(filterInput.value.trim().toLowerCase()); };
       li.appendChild(delBtn); li.appendChild(document.createTextNode(emp.name+(team.name!=="OFF"?` (${emp.site||team.site})`:"")));
       li.dataset.empId = emp.id;
       ul.appendChild(li);
     });
 
-    const addBtn=document.createElement("button"); addBtn.textContent="➕ Add Employee";
-    addBtn.onclick=()=>addEmployeeToTeam(team.name);
+    const addBtn=document.createElement("button"); addBtn.textContent="➕ Add Employee"; addBtn.onclick=()=>addEmployeeToTeam(team.name);
     teamDiv.appendChild(ul); teamDiv.appendChild(addBtn);
 
     new Sortable(ul,{group:'employees', animation:150, delay:150, delayOnTouchOnly:true, onEnd: evt=>{
@@ -238,20 +231,51 @@ function buildTeamsContent(){
   });
 }
 
-// Add employee from master list (as dropdown)
+// ==========================
+// Add Employee (Dropdown Modal)
 function addEmployeeToTeam(teamName){
   if(masterEmployees.length===0) return alert("Add employees in Master List first");
+
+  const overlayDiv = document.createElement("div");
+  overlayDiv.style.position = "fixed"; overlayDiv.style.top="0"; overlayDiv.style.left="0";
+  overlayDiv.style.width="100%"; overlayDiv.style.height="100%";
+  overlayDiv.style.background="rgba(0,0,0,0.5)"; overlayDiv.style.display="flex";
+  overlayDiv.style.alignItems="center"; overlayDiv.style.justifyContent="center"; overlayDiv.style.zIndex="9999";
+
+  const modal = document.createElement("div");
+  modal.style.background="#fff"; modal.style.padding="20px"; modal.style.borderRadius="8px"; modal.style.textAlign="center"; modal.style.minWidth="250px";
+
+  const label = document.createElement("label");
+  label.textContent = "Select Employee: ";
   const select = document.createElement("select");
-  masterEmployees.forEach(emp=>{ const o=document.createElement("option"); o.value=o.textContent=emp; select.appendChild(o); });
-  const name = promptSelect("Select employee from dropdown", select);
-  if(!name) return;
-  const emp={id:Date.now(), name:name, team:teamName, site:""};
-  const team=teams.find(t=>t.name===teamName); team.employees.push(emp);
-  localStorage.setItem("teams", JSON.stringify(teams));
-  buildTeamsContent();
-  buildEmployeeTable(filterInput.value.trim().toLowerCase());
+  masterEmployees.forEach(emp => {
+    const option = document.createElement("option");
+    option.value = emp; option.textContent = emp; select.appendChild(option);
+  });
+  label.appendChild(select);
+  modal.appendChild(label);
+
+  const addBtn = document.createElement("button");
+  addBtn.textContent = "Add"; addBtn.style.marginLeft="10px";
+  addBtn.onclick = () => {
+    const name = select.value; if(!name) return;
+    const emp = { id: Date.now(), name: name, team: teamName, site: "" };
+    const team = teams.find(t => t.name===teamName); team.employees.push(emp);
+    localStorage.setItem("teams", JSON.stringify(teams));
+    buildTeamsContent(); buildEmployeeTable(filterInput.value.trim().toLowerCase());
+    document.body.removeChild(overlayDiv);
+  };
+
+  const cancelBtn = document.createElement("button");
+  cancelBtn.textContent="Cancel"; cancelBtn.style.marginLeft="10px";
+  cancelBtn.onclick = ()=>{ document.body.removeChild(overlayDiv); };
+
+  modal.appendChild(addBtn); modal.appendChild(cancelBtn);
+  overlayDiv.appendChild(modal);
+  document.body.appendChild(overlayDiv);
 }
 
+// ==========================
 // Move employee between teams
 function moveEmployeeToTeam(empId,newTeamName){
   let emp, oldTeam;
@@ -266,11 +290,6 @@ function moveEmployeeToTeam(empId,newTeamName){
   }
 }
 
-// Simple promptSelect
-function promptSelect(title, selectElement){
-  return prompt(title+"\n"+Array.from(selectElement.options).map(o=>o.textContent).join("\n"));
-}
-
 // ==========================
 // Table
 const overtimeSummary = document.getElementById("overtimeSummary");
@@ -278,31 +297,41 @@ filterInput.addEventListener("input", ()=>{ buildEmployeeTable(filterInput.value
 
 function buildEmployeeTable(filterText=""){
   const table=document.getElementById("employeeTable");
-  table.innerHTML=`<tr><th>Employee Name</th><th>Date</th><th>Site Name</th><th>Site In</th><th>Site Out</th><th>Total Hours</th><th>Overtime Hours</th></tr>`;
+  table.innerHTML=`<tr><th>❌</th><th>Employee Name</th><th>Date</th><th>Site Name</th><th>Site In</th><th>Site Out</th><th>Total Hours</th><th>Overtime Hours</th></tr>`;
   if(!allData[selectedDate]) allData[selectedDate]={};
   let totalOvertime=0;
   teams.forEach(team=>team.employees.forEach(emp=>{
     if(filterText && !emp.name.toLowerCase().includes(filterText)) return;
     const row=table.insertRow();
-    row.insertCell(0).textContent=emp.name;
-    row.insertCell(1).textContent=selectedDate;
+    const delCell=row.insertCell(0);
+    const delBtn=document.createElement("button"); delBtn.textContent="❌";
+    delBtn.onclick=()=>{ team.employees = team.employees.filter(e=>e.id!==emp.id); buildTeamsContent(); buildEmployeeTable(filterInput.value.trim().toLowerCase()); };
+    delCell.appendChild(delBtn);
+
+    row.insertCell(1).textContent=emp.name;
+    row.insertCell(2).textContent=selectedDate;
+
     const siteInput=document.createElement("input"); siteInput.value=allData[selectedDate][emp.id]?.site||emp.site;
-    row.insertCell(2).appendChild(siteInput);
+    row.insertCell(3).appendChild(siteInput);
+
     const inInput=document.createElement("input"); inInput.type="time"; inInput.value=allData[selectedDate][emp.id]?.in||team.siteIn||"";
     const outInput=document.createElement("input"); outInput.type="time"; outInput.value=allData[selectedDate][emp.id]?.out||team.siteOut||"";
-    row.insertCell(3).appendChild(inInput); row.insertCell(4).appendChild(outInput);
-    const totalCell=row.insertCell(5); const overtimeCell=row.insertCell(6);
+    row.insertCell(4).appendChild(inInput); row.insertCell(5).appendChild(outInput);
+
+    const totalCell=row.insertCell(6); const overtimeCell=row.insertCell(7);
+
     function updateAndSave(){
-      const [totalH, overtimeH]=calculateHours(inInput,outInput,totalCell,overtimeCell);
+      const [totalH,overtimeH]=calculateHours(inInput,outInput,totalCell,overtimeCell);
       if(!allData[selectedDate][emp.id]) allData[selectedDate][emp.id]={};
       allData[selectedDate][emp.id].in=inInput.value; allData[selectedDate][emp.id].out=outInput.value;
-      allData[selectedDate][emp.id].site=siteInput.value; localStorage.setItem("allData", JSON.stringify(allData));
+      allData[selectedDate][emp.id].site=siteInput.value;
+      localStorage.setItem("allData", JSON.stringify(allData));
       updateOvertimeSummary();
     }
     inInput.addEventListener("change", updateAndSave);
     outInput.addEventListener("change", updateAndSave);
     siteInput.addEventListener("change", updateAndSave);
-    const [totalH, overtimeH]=calculateHours(inInput,outInput,totalCell,overtimeCell);
+    const [totalH,overtimeH]=calculateHours(inInput,outInput,totalCell,overtimeCell);
     totalOvertime+=parseFloat(overtimeH);
   }));
   updateOvertimeSummary();
@@ -320,7 +349,7 @@ function calculateHours(inInput,outInput,totalCell,overtimeCell){
 
 function updateOvertimeSummary(){
   let totalOT=0; const table=document.getElementById("employeeTable");
-  for(let i=1;i<table.rows.length;i++) totalOT+=parseFloat(table.rows[i].cells[6].textContent)||0;
+  for(let i=1;i<table.rows.length;i++) totalOT+=parseFloat(table.rows[i].cells[7].textContent)||0;
   overtimeSummary.textContent="Total Overtime: "+totalOT.toFixed(2)+" hrs";
 }
 
@@ -354,15 +383,9 @@ document.getElementById("shareTeamCountBtn").addEventListener("click", ()=>{
 });
 
 // ==========================
-// View Button for filter
-document.getElementById("viewFilterBtn").addEventListener("click", ()=>{ buildEmployeeTable(filterInput.value.trim().toLowerCase()); });
-
-// ==========================
-// Save button auto save
-document.getElementById("saveBtn").addEventListener("click", ()=>{
-  localStorage.setItem("teams", JSON.stringify(teams));
-  localStorage.setItem("allData", JSON.stringify(allData));
-  alert("✅ Data saved for "+selectedDate);
+// View Button for filtering by date
+document.getElementById("viewFilterBtn").addEventListener("click", ()=>{
+  buildEmployeeTable(filterInput.value.trim().toLowerCase());
 });
 
 // ==========================

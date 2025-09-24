@@ -21,11 +21,10 @@ input[type=time], input[type=text], input[type=date], select, #filterInput { wid
 .employee-item { display:flex; align-items:center; justify-content:flex-start; padding:2px 4px; margin:2px 0; background:#f7931e; border-radius:4px; color:white; font-size:0.9em; }
 .employee-item button { margin-right:5px; background:red; color:white; border:none; border-radius:3px; cursor:pointer; }
 #overtimeSummary { margin-top:10px; font-weight:bold; color:#262e87; }
-#summaryPage { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:2000; justify-content:center; align-items:center; }
-#summaryContentWrapper { background:white; padding:20px; border-radius:10px; max-width:500px; width:90%; max-height:90%; overflow:auto; box-shadow:0 0 10px rgba(0,0,0,0.5); }
-#summaryContent p { margin:5px 0; font-size:1em; }
-#summaryContent h3 { margin-top:15px; margin-bottom:5px; }
-#shareImageBtn { margin-top:10px; }
+#teamCountTableWrapper { margin:20px 10px; }
+#teamCountTable { width:100%; border-collapse:collapse; }
+#teamCountTable th, #teamCountTable td { border:1px solid #333; padding:6px; text-align:center; font-size:0.9em; }
+#teamCountTable th { background:#f7931e; color:white; }
 @media(max-width:600px){
   table, th, td, input { font-size:0.8em; }
   header { flex-direction: column; align-items:flex-start; }
@@ -43,7 +42,7 @@ input[type=time], input[type=text], input[type=date], select, #filterInput { wid
     <input type="date" id="workDate">
     <button id="saveBtn">Save Data</button>
     <button id="exportCSVBtn">Export CSV</button>
-    <button id="teamCountBtn">Team Count</button>
+    <button id="shareTeamCountBtn">Share Team Count</button>
     <input type="date" id="exportFrom" title="From Date">
     <input type="date" id="exportTo" title="To Date">
     <input type="text" id="filterInput" placeholder="Filter Employee Name">
@@ -65,17 +64,14 @@ input[type=time], input[type=text], input[type=date], select, #filterInput { wid
 
 <main style="margin-left:10px; padding:10px;">
   <table id="employeeTable"></table>
-</main>
 
-<!-- Team Count Modal -->
-<div id="summaryPage" style="display:flex;">
-  <div id="summaryContentWrapper">
-    <h2>Team Count Summary</h2>
-    <div id="summaryContent"></div>
-    <button id="shareImageBtn">📤 Share as Image</button>
-    <button onclick="document.getElementById('summaryPage').style.display='none'" style="margin-left:5px;">Close</button>
+  <div id="teamCountTableWrapper">
+    <h3>Team Count Summary</h3>
+    <table id="teamCountTable">
+      <tr><th>Date</th><th>Site Name</th><th>Team Count</th><th>OFF Employees</th></tr>
+    </table>
   </div>
-</div>
+</main>
 
 <script>
 // ==========================
@@ -140,31 +136,24 @@ function buildHamburgerMenu(){
     team.employees.forEach(emp=>{
       const li=document.createElement("li"); li.className="employee-item";
       const delBtn=document.createElement("button"); delBtn.textContent="❌";
-      function deleteEmployee(){ team.employees = team.employees.filter(e=>e.id!==emp.id); saveTeams(); buildHamburgerMenu(); buildEmployeeTable(filterInput.value.trim().toLowerCase()); }
-      delBtn.addEventListener("click", (e)=>{ e.stopPropagation(); deleteEmployee(); });
+      delBtn.addEventListener("click", (e)=>{ e.stopPropagation(); team.employees = team.employees.filter(e2=>e2.id!==emp.id); saveTeams(); buildHamburgerMenu(); buildEmployeeTable(filterInput.value.trim().toLowerCase()); });
       li.appendChild(delBtn); li.appendChild(document.createTextNode(emp.name+" ("+emp.site+")"));
       li.dataset.empId = emp.id; ul.appendChild(li);
     });
-    // Add employee dropdown
-    if(masterEmployees.length>0 && team.name!=="OFF"){
-      const sel = document.createElement("select");
-      const defaultOpt = document.createElement("option"); defaultOpt.text="Select Employee"; defaultOpt.value="";
-      sel.appendChild(defaultOpt);
-      masterEmployees.forEach(name=>{
-        const opt = document.createElement("option"); opt.value=name; opt.text=name; sel.appendChild(opt);
-      });
-      const addBtn=document.createElement("button"); addBtn.textContent="➕ Add Employee"; addBtn.onclick=()=>{
-        if(!sel.value) return;
-        const employee={id:Date.now(), name:sel.value, site:team.site, team:team.name};
-        team.employees.push(employee);
-        buildHamburgerMenu(); buildEmployeeTable(filterInput.value.trim().toLowerCase()); saveTeams();
-      };
+    teamDiv.appendChild(ul);
+
+    // Employee Dropdown (skip OFF)
+    if(team.name!=="OFF" && masterEmployees.length>0){
+      const sel=document.createElement("select");
+      const defaultOpt=document.createElement("option"); defaultOpt.value=""; defaultOpt.text="Select Employee"; sel.appendChild(defaultOpt);
+      masterEmployees.forEach(name=>{ const opt=document.createElement("option"); opt.value=name; opt.text=name; sel.appendChild(opt); });
+      const addBtn=document.createElement("button"); addBtn.textContent="➕ Add Employee";
+      addBtn.onclick=()=>{ if(!sel.value) return; const employee={id:Date.now(), name:sel.value, site:team.site, team:team.name}; team.employees.push(employee); saveTeams(); buildHamburgerMenu(); buildEmployeeTable(filterInput.value.trim().toLowerCase()); };
       teamDiv.appendChild(sel); teamDiv.appendChild(addBtn);
     }
     menu.appendChild(teamDiv);
 
-    // Drag & drop
-    new Sortable(ul, { group:'employees', animation:150, delay:150, delayOnTouchOnly:true, onEnd: evt=>{
+    new Sortable(ul,{group:'employees',animation:150,delay:150,delayOnTouchOnly:true,onEnd: evt=>{
       const empId=evt.item.dataset.empId;
       const newTeamName=evt.to.dataset.team;
       moveEmployeeToTeam(empId,newTeamName);
@@ -174,10 +163,9 @@ function buildHamburgerMenu(){
 }
 
 // ==========================
-// Build Master Employee List
+// Master Employee List
 function buildMasterList(){
-  const masterList=document.getElementById("masterList");
-  masterList.innerHTML="";
+  const masterList=document.getElementById("masterList"); masterList.innerHTML="";
   masterEmployees.forEach(name=>{
     const li=document.createElement("li"); li.textContent=name;
     const delBtn=document.createElement("button"); delBtn.textContent="❌"; delBtn.onclick=()=>{ masterEmployees=masterEmployees.filter(n=>n!==name); saveMaster(); buildHamburgerMenu(); };
@@ -290,47 +278,39 @@ document.getElementById("exportCSVBtn").addEventListener("click", ()=>{
 });
 
 // ==========================
-// Save Button
-document.getElementById("saveBtn").addEventListener("click", ()=>{ saveAllData(); updateSavedDatesList(); alert("✅ Data saved!"); });
-
-// ==========================
-// Team Count Button
-document.getElementById("teamCountBtn").addEventListener("click", ()=>{
-  let siteName="", count=0, offEmployees=[];
-  teams.forEach(team=>{
-    if(team.name!=="OFF"){
-      if(team.employees.length>0 && !siteName){
-        const emp=team.employees[0];
-        const data=allData[selectedDate]?.[emp.id];
-        siteName = (data?.site||emp.site||"N/A");
-      }
-      count+=team.employees.length;
-    } else {
-      offEmployees = team.employees.map(e=>e.name);
-    }
-  });
-  const content=document.getElementById("summaryContent");
-  content.innerHTML=`<p><b>Date:</b> ${selectedDate}</p>
-                     <p><b>Site Name:</b> ${siteName||"N/A"}</p>
-                     <p><b>Total Team Members:</b> ${count}</p>
-                     <p><b>OFF Employees:</b> ${offEmployees.join(", ") || "None"}</p>`;
-  document.getElementById('summaryPage').style.display='flex';
+// Team Count Table & Save
+const teamCountTable = document.getElementById("teamCountTable");
+document.getElementById("saveBtn").addEventListener("click", ()=>{
+  saveAllData(); updateSavedDatesList(); updateTeamCountTable(); alert("✅ Data saved!");
 });
 
+function updateTeamCountTable(){
+  const tbody = teamCountTable.querySelector("tbody") || document.createElement("tbody");
+  tbody.innerHTML="";
+  let offTeam = teams.find(t=>t.name==="OFF");
+  let offEmployees = offTeam ? offTeam.employees.map(e=>e.name).join(", ") : "";
+  let count = 0;
+  teams.filter(t=>t.name!=="OFF").forEach(t=>count+=t.employees.length);
+  const tr=document.createElement("tr");
+  tr.innerHTML=`<td>${selectedDate}</td><td>${teams.map(t=>t.site).filter(s=>s).join(", ")}</td><td>${count}</td><td>${offEmployees}</td>`;
+  tbody.appendChild(tr);
+  if(!teamCountTable.querySelector("tbody")) teamCountTable.appendChild(tbody);
+}
+
 // ==========================
-// Share as Image
-document.getElementById("shareImageBtn").addEventListener("click", ()=>{
-  html2canvas(document.getElementById("summaryContentWrapper")).then(canvas=>{
-    canvas.toBlob(function(blob){
-      const url = URL.createObjectURL(blob);
-      window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent("Team Summary: See attached image") + "&media=" + encodeURIComponent(url));
-    });
+// Share Team Count
+document.getElementById("shareTeamCountBtn").addEventListener("click", ()=>{
+  html2canvas(teamCountTable).then(canvas=>{
+    const dataURL=canvas.toDataURL("image/png");
+    const link=document.createElement("a"); link.href=dataURL; link.target="_blank"; link.click();
   });
 });
 
 // ==========================
 // Initialize
 buildHamburgerMenu(); buildEmployeeTable(); updateSavedDatesList();
+
 </script>
+
 </body>
 </html>

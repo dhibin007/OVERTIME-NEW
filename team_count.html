@@ -52,11 +52,17 @@ const allData = JSON.parse(localStorage.getItem("allData")) || {};
 const table = document.getElementById("teamTable");
 teams.forEach(team => {
     if(team.name !== "OFF") {
-        const row = table.insertRow();
-        row.insertCell(0).textContent = selectedDate;
-        row.insertCell(1).textContent = team.site || "No Site";
-        row.insertCell(2).textContent = team.name;
-        row.insertCell(3).textContent = team.employees.length;
+        const hasEmployees = team.employees && team.employees.length > 0;
+        const hasSite = team.site && team.site.trim() !== "";
+        const hasInOut = (team.siteIn && team.siteIn.trim() !== "") || (team.siteOut && team.siteOut.trim() !== "");
+
+        if(hasEmployees || hasSite || hasInOut) {
+            const row = table.insertRow();
+            row.insertCell(0).textContent = selectedDate;
+            row.insertCell(1).textContent = team.site || "No Site";
+            row.insertCell(2).textContent = team.name;
+            row.insertCell(3).textContent = team.employees.length;
+        }
     }
 });
 
@@ -78,8 +84,13 @@ document.getElementById("shareBtn").addEventListener("click", ()=>{
     let msg = `Team Count for ${selectedDate}:\n\n`;
     teams.forEach(team=>{
         if(team.name!=="OFF"){
-            const count = team.employees.length;
-            if(count>0) msg += `${team.name} (${team.site || "No Site"}): ${count} members\n`;
+            const hasEmployees = team.employees && team.employees.length > 0;
+            const hasSite = team.site && team.site.trim() !== "";
+            const hasInOut = (team.siteIn && team.siteIn.trim() !== "") || (team.siteOut && team.siteOut.trim() !== "");
+            if(hasEmployees || hasSite || hasInOut){
+                const count = team.employees.length;
+                msg += `${team.name} (${team.site || "No Site"}): ${count} members\n`;
+            }
         }
     });
     if(offTeam && offTeam.employees.length>0){

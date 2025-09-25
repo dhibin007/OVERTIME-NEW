@@ -18,7 +18,7 @@ th { background:#f7931e; color:white; }
 input[type=time], input[type=text], input[type=date], select, #filterInput { width:90%; padding:4px; margin:2px 0; }
 .employee-item { display:flex; align-items:center; justify-content:flex-start; padding:2px 4px; margin:2px 0; background:#f7931e; border-radius:4px; color:white; font-size:0.9em; }
 .employee-item button { margin-right:5px; background:red; color:white; border:none; border-radius:3px; cursor:pointer; }
-.collapsible { background:#262e87; color:white; cursor:pointer; padding:8px; width:100%; border:none; text-align:left; outline:none; font-size:0.9em; border-radius:3px; margin-top:5px; touch-action: manipulation; z-index:1003; pointer-events:auto; }
+.collapsible { background:#262e87; color:white; cursor:pointer; padding:8px; width:100%; border:none; text-align:left; outline:none; font-size:0.9em; border-radius:3px; margin-top:5px; z-index:1003; pointer-events:auto; }
 .active, .collapsible:hover { background:#3a2b7c; }
 .content { display:none; overflow:hidden; padding-left:10px; }
 #overtimeSummary { margin-top:10px; font-weight:bold; color:#262e87; }
@@ -92,9 +92,9 @@ const dateInput = document.getElementById("workDate");
 dateInput.value = selectedDate;
 const filterInput = document.getElementById("filterInput");
 dateInput.addEventListener("change", ()=>{
-  selectedDate=dateInput.value; 
+  selectedDate = dateInput.value; 
   initDateData();
-  buildTeamsContent(); 
+  buildTeamsContent();
   buildEmployeeTable(filterInput.value.trim().toLowerCase());
 });
 
@@ -107,7 +107,7 @@ hamburgerBtn.addEventListener("click", ()=>{ sidebar.classList.add("open"); over
 overlay.addEventListener("click", ()=>{ sidebar.classList.remove("open"); overlay.style.display="none"; });
 
 // ==========================
-// Initialize or Load Date Data
+// Initialize Date Data
 function initDateData(){
   if(!allData[selectedDate]){
     allData[selectedDate] = { teams: JSON.parse(JSON.stringify(teamTemplate)), employees: {} };
@@ -115,13 +115,11 @@ function initDateData(){
 }
 
 // ==========================
-// Collapsible - works on all dates/mobile
+// Collapsible
 function attachCollapsibleListeners(){
   document.querySelectorAll(".collapsible").forEach(btn=>{
     btn.removeEventListener("click", btn._listener);
-    btn.removeEventListener("touchstart", btn._listener);
-    btn._listener = (e)=>{
-      e.preventDefault(); // prevent double trigger
+    btn._listener = ()=>{
       btn.classList.toggle("active");
       const content = btn.nextElementSibling;
       if(content){
@@ -129,7 +127,6 @@ function attachCollapsibleListeners(){
       }
     };
     btn.addEventListener("click", btn._listener);
-    btn.addEventListener("touchstart", btn._listener);
   });
 }
 
@@ -184,14 +181,14 @@ function buildMasterSiteList(){
 buildMasterSiteList();
 
 // ==========================
-// Build Teams Dropdown + Drag/Drop
+// Build Teams
 function buildTeamsContent(){
-  const menu=document.getElementById("teamsContent");
+  const menu = document.getElementById("teamsContent");
   menu.innerHTML="";
   const teams = allData[selectedDate].teams;
   teams.forEach(team=>{
-    const teamDiv=document.createElement("div");
-    const title=document.createElement("h4"); title.textContent=team.name; teamDiv.appendChild(title);
+    const teamDiv = document.createElement("div");
+    const title = document.createElement("h4"); title.textContent = team.name; teamDiv.appendChild(title);
 
     if(team.name!=="OFF"){
       const siteSelect = document.createElement("select");
@@ -204,38 +201,33 @@ function buildTeamsContent(){
       });
       const siteInInput = document.createElement("input"); siteInInput.type="time"; siteInInput.value=team.siteIn||"";
       const siteOutInput = document.createElement("input"); siteOutInput.type="time"; siteOutInput.value=team.siteOut||"";
-
-      const applyBtn=document.createElement("button"); applyBtn.textContent="Apply to Team";
-      applyBtn.onclick=()=>{
-        team.site = siteSelect.value;
-        team.siteIn = siteInInput.value;
-        team.siteOut = siteOutInput.value;
+      const applyBtn = document.createElement("button"); applyBtn.textContent="Apply to Team";
+      applyBtn.onclick = ()=>{
+        team.site = siteSelect.value; team.siteIn = siteInInput.value; team.siteOut = siteOutInput.value;
         team.employees.forEach(emp=>{
-          allData[selectedDate].employees[emp.id] = { ...allData[selectedDate].employees[emp.id], site:team.site, in:team.siteIn, out:team.siteOut };
+          allData[selectedDate].employees[emp.id] = { site:team.site, in:team.siteIn, out:team.siteOut };
         });
         localStorage.setItem("allData", JSON.stringify(allData));
         buildEmployeeTable(filterInput.value.trim().toLowerCase());
         alert("✅ Applied to all team members");
       };
-
-      const wrap = document.createElement("div");
-      wrap.innerHTML="<small>Default Site / In / Out:</small><br>";
+      const wrap = document.createElement("div"); wrap.innerHTML="<small>Default Site / In / Out:</small><br>";
       wrap.appendChild(siteSelect); wrap.appendChild(siteInInput); wrap.appendChild(siteOutInput); wrap.appendChild(applyBtn);
       teamDiv.appendChild(wrap);
     }
 
-    // Employee List
-    const ul=document.createElement("ul"); ul.dataset.team=team.name;
+    // Employee list
+    const ul = document.createElement("ul"); ul.dataset.team=team.name;
     team.employees.forEach(emp=>{
-      const li=document.createElement("li"); li.className="employee-item";
-      const delBtn=document.createElement("button"); delBtn.textContent="❌";
-      delBtn.onclick=()=>{ team.employees = team.employees.filter(e=>e.id!==emp.id); buildTeamsContent(); buildEmployeeTable(filterInput.value.trim().toLowerCase()); };
+      const li = document.createElement("li"); li.className="employee-item";
+      const delBtn = document.createElement("button"); delBtn.textContent="❌";
+      delBtn.onclick = ()=>{ team.employees = team.employees.filter(e=>e.id!==emp.id); buildTeamsContent(); buildEmployeeTable(filterInput.value.trim().toLowerCase()); };
       li.appendChild(delBtn); li.appendChild(document.createTextNode(emp.name+(team.name!=="OFF"?` (${emp.site||team.site})`:"")));
       li.dataset.empId=emp.id;
       ul.appendChild(li);
     });
 
-    // Add Employee Dropdown
+    // Add Employee
     const addSelect = document.createElement("select");
     const defaultOption = document.createElement("option"); defaultOption.value=""; defaultOption.textContent="Select Employee"; addSelect.appendChild(defaultOption);
     masterEmployees.forEach(empName=>{ const option=document.createElement("option"); option.value=empName; option.textContent=empName; addSelect.appendChild(option); });
@@ -272,8 +264,7 @@ function moveEmployeeToTeam(empId,newTeamName){
   if(emp && emp.team!==newTeamName){
     oldTeam.employees = oldTeam.employees.filter(e=>e.id!==empId);
     const newTeam = teams.find(t=>t.name===newTeamName);
-    emp.team = newTeamName;
-    newTeam.employees.push(emp);
+    emp.team = newTeamName; newTeam.employees.push(emp);
     localStorage.setItem("allData", JSON.stringify(allData));
     buildTeamsContent();
     buildEmployeeTable(filterInput.value.trim().toLowerCase());
@@ -387,7 +378,6 @@ document.getElementById("shareTeamCountBtn").addEventListener("click", ()=>{
 initDateData();
 buildTeamsContent();
 buildEmployeeTable();
-
 </script>
 
 </body>

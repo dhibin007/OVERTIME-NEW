@@ -12,22 +12,31 @@ th, td { border:1px solid #333; padding:8px; text-align:center; font-size:0.9em;
 th { background:#f04e23; color:white; }
 tr:nth-child(even) { background:#f9f9f9; }
 button { cursor:pointer; margin:5px; padding:6px 12px; border:none; border-radius:4px; background:#f7931e; color:white; font-size:0.9em; }
+#captureArea { padding:10px; background:#fff; }
 @media(max-width:600px){ table, th, td, button { font-size:0.8em; } }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
 <body>
 
 <header>Team Count View</header>
 <div style="padding:10px;">
-  <button id="shareBtn">Share WhatsApp</button>
-  <table id="teamTable">
-    <tr>
-      <th>Date</th>
-      <th>Site Name</th>
-      <th>Team Name</th>
-      <th>Team Count</th>
-    </tr>
-  </table>
+  <button id="shareBtn">Share Text (WhatsApp)</button>
+  <button id="imgBtn">Generate Image</button>
+
+  <div id="captureArea">
+    <table id="teamTable">
+      <tr>
+        <th>Date</th>
+        <th>Site Name</th>
+        <th>Team Name</th>
+        <th>Team Count</th>
+      </tr>
+    </table>
+
+    <h3>OFF Employees</h3>
+    <ul id="offList"></ul>
+  </div>
 </div>
 
 <script>
@@ -39,24 +48,32 @@ const selectedDate = params.get("date");
 const teams = JSON.parse(localStorage.getItem("teams")) || [];
 const allData = JSON.parse(localStorage.getItem("allData")) || {};
 
-// Build table
+// Build table for normal teams
 const table = document.getElementById("teamTable");
 teams.forEach(team => {
     if(team.name !== "OFF") {
         const row = table.insertRow();
-        const cellDate = row.insertCell(0);
-        const cellSite = row.insertCell(1);
-        const cellTeam = row.insertCell(2);
-        const cellCount = row.insertCell(3);
-
-        cellDate.textContent = selectedDate;
-        cellSite.textContent = team.site || "No Site";
-        cellTeam.textContent = team.name;
-        cellCount.textContent = team.employees.length;
+        row.insertCell(0).textContent = selectedDate;
+        row.insertCell(1).textContent = team.site || "No Site";
+        row.insertCell(2).textContent = team.name;
+        row.insertCell(3).textContent = team.employees.length;
     }
 });
 
-// Share to WhatsApp
+// OFF team employee list
+const offList = document.getElementById("offList");
+const offTeam = teams.find(t=>t.name==="OFF");
+if(offTeam && offTeam.employees.length>0){
+    offTeam.employees.forEach(emp=>{
+        const li=document.createElement("li");
+        li.textContent = emp.name;
+        offList.appendChild(li);
+    });
+} else {
+    offList.innerHTML = "<li>No employees marked as OFF</li>";
+}
+
+// Share as text
 document.getElementById("shareBtn").addEventListener("click", ()=>{
     let msg = `Team Count for ${selectedDate}:\n\n`;
     teams.forEach(team=>{
@@ -65,9 +82,21 @@ document.getElementById("shareBtn").addEventListener("click", ()=>{
             if(count>0) msg += `${team.name} (${team.site || "No Site"}): ${count} members\n`;
         }
     });
-    if(!msg) msg = "No team data for selected date.";
+    if(offTeam && offTeam.employees.length>0){
+        msg += `\nOFF Employees: ${offTeam.employees.map(e=>e.name).join(", ")}`;
+    }
     const waLink = "https://wa.me/?text=" + encodeURIComponent(msg);
     window.open(waLink, "_blank");
+});
+
+// Generate image of table + OFF list
+document.getElementById("imgBtn").addEventListener("click", ()=>{
+    const captureArea=document.getElementById("captureArea");
+    html2canvas(captureArea).then(canvas=>{
+        const imgURL=canvas.toDataURL("image/png");
+        const win=window.open();
+        win.document.write("<img src='"+imgURL+"' style='max-width:100%'>");
+    });
 });
 </script>
 

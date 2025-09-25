@@ -93,7 +93,11 @@ const uaeHolidays = ["2025-01-01","2025-01-24","2025-12-02"];
 // ====== Date Picker ======
 const dateInput = document.getElementById("workDate");
 dateInput.value = selectedDate;
-dateInput.addEventListener("change", ()=>{ selectedDate=dateInput.value; buildTeamsContent(); buildTableForDateRange(selectedDate,selectedDate); });
+dateInput.addEventListener("change", ()=>{
+  selectedDate=dateInput.value; 
+  buildTeamsContent(); 
+  buildTableForDateRange(selectedDate,selectedDate);
+});
 
 // ====== Sidebar open/close ======
 const sidebar = document.getElementById("sidebar");
@@ -160,7 +164,6 @@ function buildTeamsContent(){
     const title=document.createElement("h4"); title.textContent=team.name; teamDiv.appendChild(title);
 
     if(team.name!=="OFF"){
-      // Site dropdown + in/out + apply to team
       const siteSelect = document.createElement("select");
       masterSites.forEach(siteName=>{
         const option = document.createElement("option");
@@ -172,10 +175,16 @@ function buildTeamsContent(){
       const siteOutInput = document.createElement("input"); siteOutInput.type="time"; siteOutInput.value=team.siteOut;
       const applyBtn=document.createElement("button"); applyBtn.textContent="Apply to Team";
       applyBtn.onclick=()=>{
-        team.site = siteSelect.value; team.siteIn=siteInInput.value; team.siteOut=siteOutInput.value;
-        if(!allData[selectedDate]) allData[selectedDate]={teams:JSON.parse(JSON.stringify(teams))};
-        alert("✅ Applied to all team members");
-        buildTableForDateRange(selectedDate,selectedDate);
+        team.site = siteSelect.value;
+        team.siteIn = siteInInput.value;
+        team.siteOut = siteOutInput.value;
+
+        if(!allData[selectedDate]) allData[selectedDate] = { teams: JSON.parse(JSON.stringify(teams)) };
+        else allData[selectedDate].teams = JSON.parse(JSON.stringify(teams));
+
+        localStorage.setItem("allData", JSON.stringify(allData));
+        buildTableForDateRange(selectedDate, selectedDate);
+        alert("✅ Applied to all team members for "+selectedDate);
       };
       const wrap = document.createElement("div");
       wrap.innerHTML="<small>Default Site / In / Out:</small><br>";
@@ -200,9 +209,10 @@ function buildTeamsContent(){
     // Remaining employees for tap-to-add
     const availableDiv=document.createElement("div"); availableDiv.className="available-emp";
     remainingEmployees.forEach(empName=>{
-      const btn=document.createElement("button"); btn.textContent=empName;
-      btn.onclick=()=>{
-        team.employees.push({id:Date.now(), name:empName, site:"", in:"", out:""});
+      const btn=document.createElement("button"); btn.textContent=
+      btn.textContent=empName;
+      btn.onclick = ()=>{
+        team.employees.push({ name: empName });
         remainingEmployees = remainingEmployees.filter(e=>e!==empName);
         buildTeamsContent();
       };
@@ -214,112 +224,150 @@ function buildTeamsContent(){
   });
 }
 
-// ====== Build Table with Overtime ======
-function buildTableForDateRange(fromDate,toDate,filterText=""){
-  const table=document.getElementById("employeeTable"); 
-  table.innerHTML=`<tr>
-    <th>Employee Name</th><th>Date</th><th>Site</th>
-    <th>In</th><th>Out</th><th>Total Hrs</th><th>Overtime</th>
-  </tr>`;
+// ====== Table & Overtime ======
+const overtimeSummary = document.getElementById("overtimeSummary");
+const filterInput = document.getElementById("filterInput");
+filterInput.addEventListener("input", ()=>{ buildTableForDateRange(selectedDate, selectedDate, filterInput.value.trim().toLowerCase()); });
 
-  let totalOT=0;
-  if(!allData[fromDate]) allData[fromDate]={teams:JSON.parse(JSON.stringify(teams))};
-  Object.keys(allData).filter(d=>d>=fromDate && d<=toDate).sort().forEach(date=>{
-    const day = new Date(date).getDay();
-    const highlight = (day===0 || uaeHolidays.includes(date));
+function buildTableForDateRange(fromDate, toDate, filterText=""){
+  const table=document.getElementById("employeeTable");
+  table.innerHTML=`<tr><th>Employee Name</th><th>Date</th><th>Site Name</th><th>Site In</th><th>Site Out</th><th>Total Hours</th><th>Overtime Hours</th></tr>`;
+  let totalOT = 0;
 
-    allData[date].teams.forEach(team=>{
+  Object.keys(allData).sort().filter(d=>d>=fromDate && d<=toDate).forEach(date=>{
+    const teamsData = allData[date].teams || [];
+    teamsData.forEach(team=>{
       team.employees.forEach(emp=>{
         if(filterText && !emp.name.toLowerCase().includes(filterText)) return;
-        const row=table.insertRow();
-        if(highlight) row.classList.add("highlight");
+        const row = table.insertRow();
+        row.insertCell(0).textContent = emp.name;
+        row.insertCell(1).textContent = date;
 
-        row.insertCell(0).textContent=emp.name;
-        row.insertCell(1).textContent=date;
-
-        const siteInput=document.createElement("input"); siteInput.value=emp.site||team.site||"";
+        const siteInput = document.createElement("input"); siteInput.value = emp.site || team.site;
         row.insertCell(2).appendChild(siteInput);
 
-        const inInput=document.createElement("input"); inInput.type="time"; inInput.value=emp.in||team.siteIn||"";
-        const outInput=document.createElement("input"); outInput.type="time"; outInput.value=emp.out||team.siteOut||"";
-        row.insertCell(3).appendChild(inInput);
-        row.insertCell(4).appendChild(outInput);
+        const inInput = document.createElement("input"); inInput.type="time"; inInput.value = emp.in || team.siteIn || "";
+        const outInput = document.createElement("input"); outInput.type="time"; outInput.value = emp.out || team.siteOut || "";
+        row.insertCell(3).appendChild(inInput); row.insertCell(4).appendChild(outInput);
 
-        const totalCell=row.insertCell(5);
-        const overtimeCell=row.insertCell(6);
+        const totalCell = row.insertCell(5);
+        const overtimeCell = row.insertCell(6);
 
-        function calculateAndUpdate(){
-          const inTime=inInput.value, outTime=outInput.value;
-          if(!inTime||!outTime){ totalCell.textContent="0.00"; overtimeCell.textContent="0.00"; return; }
-          const [ih,im]=inTime.split(":").map(Number);
-          const [oh,om]=outTime.split(":").map(Number);
-          let diff=(oh*60+om-(ih*60+im))/60; if(diff<0) diff+=24;
-          let overtime = highlight ? diff : (diff>9?diff-9:0);
-          totalCell.textContent=diff.toFixed(2);
-          overtimeCell.textContent=overtime.toFixed(2);
-
-          emp.in=inTime; emp.out=outTime; emp.site=siteInput.value;
-          if(!allData[date]) allData[date]={teams:JSON.parse(JSON.stringify(teams))};
+        function updateAndSave(){
+          const [totalH, overtimeH] = calculateHours(inInput, outInput, totalCell, overtimeCell, date);
+          if(!allData[date]) allData[date] = { teams: JSON.parse(JSON.stringify(teams)) };
+          allData[date].teams = JSON.parse(JSON.stringify(teams));
           localStorage.setItem("allData", JSON.stringify(allData));
           updateOvertimeSummary();
         }
+        inInput.addEventListener("change", updateAndSave);
+        outInput.addEventListener("change", updateAndSave);
+        siteInput.addEventListener("change", updateAndSave);
 
-        inInput.addEventListener("change", calculateAndUpdate);
-        outInput.addEventListener("change", calculateAndUpdate);
-        siteInput.addEventListener("change", calculateAndUpdate);
-
-        calculateAndUpdate();
+        calculateHours(inInput, outInput, totalCell, overtimeCell, date);
       });
     });
   });
+
+  updateOvertimeSummary();
+}
+
+function calculateHours(inInput, outInput, totalCell, overtimeCell, date){
+  const inTime = inInput.value, outTime = outInput.value;
+  if(!inTime || !outTime){ totalCell.textContent="0.00"; overtimeCell.textContent="0.00"; return [0,0]; }
+  const [inH,inM] = inTime.split(":").map(Number);
+  const [outH,outM] = outTime.split(":").map(Number);
+  let diff = (outH*60+outM-(inH*60+inM))/60;
+  if(diff<0) diff+=24;
+  totalCell.textContent = diff.toFixed(2);
+
+  const day = inInput.closest("tr").cells[1].textContent;
+  let overtime = diff>9 ? diff-9 : 0;
+
+  // Sundays or UAE holidays → full hours overtime
+  const weekday = new Date(day).getDay();
+  if(weekday===0 || uaeHolidays.includes(day)){
+    overtime = diff;
+    totalCell.classList.add("highlight");
+    overtimeCell.classList.add("highlight");
+  } else {
+    totalCell.classList.remove("highlight");
+    overtimeCell.classList.remove("highlight");
+  }
+
+  overtimeCell.textContent = overtime.toFixed(2);
+  return [diff, overtime];
 }
 
 function updateOvertimeSummary(){
-  const table=document.getElementById("employeeTable");
   let totalOT=0;
+  const table=document.getElementById("employeeTable");
   for(let i=1;i<table.rows.length;i++){
     let val=parseFloat(table.rows[i].cells[6].textContent);
     if(!isNaN(val)) totalOT+=val;
   }
-  document.getElementById("overtimeSummary").textContent="Total Overtime: "+totalOT.toFixed(2)+" hrs";
+  overtimeSummary.textContent="Total Overtime: "+totalOT.toFixed(2)+" hrs";
 }
 
 // ====== Buttons ======
-document.getElementById("saveBtn").addEventListener("click",()=>{ localStorage.setItem("allData", JSON.stringify(allData)); alert("✅ Data saved for "+selectedDate); });
-document.getElementById("clearDataBtn").addEventListener("click",()=>{
+// Clear Data
+document.getElementById("clearDataBtn").addEventListener("click", ()=>{
   if(confirm("Clear all data for this date?")){
-    allData[selectedDate]={teams:JSON.parse(JSON.stringify(teams))};
-    buildTeamsContent(); buildTableForDateRange(selectedDate,selectedDate);
+    delete allData[selectedDate];
+    teams.forEach(team=>team.employees=[]);
+    buildTeamsContent();
+    buildTableForDateRange(selectedDate, selectedDate);
     localStorage.setItem("allData", JSON.stringify(allData));
+    localStorage.setItem("teams", JSON.stringify(teams));
+    alert("✅ Data cleared for "+selectedDate);
   }
 });
+
+// Save Data
+document.getElementById("saveBtn").addEventListener("click", ()=>{
+  localStorage.setItem("teams", JSON.stringify(teams));
+  localStorage.setItem("allData", JSON.stringify(allData));
+  alert("✅ Data saved for "+selectedDate);
+});
+
+// View Filter
+document.getElementById("viewFilterBtn").addEventListener("click", ()=>{
+  const from = document.getElementById("exportFrom").value || selectedDate;
+  const to = document.getElementById("exportTo").value || selectedDate;
+  buildTableForDateRange(from, to, filterInput.value.trim().toLowerCase());
+});
+
+// Export CSV
 document.getElementById("exportCSVBtn").addEventListener("click", ()=>{
-  const fromDate=document.getElementById("exportFrom").value||selectedDate;
-  const toDate=document.getElementById("exportTo").value||selectedDate;
-  const rows=[["Employee Name","Date","Site","In","Out","Total Hours","Overtime"]];
-  Object.keys(allData).filter(d=>d>=fromDate && d<=toDate).sort().forEach(date=>{
-    allData[date].teams.forEach(team=>{
+  const from = document.getElementById("exportFrom").value || selectedDate;
+  const to = document.getElementById("exportTo").value || selectedDate;
+  let rows=[["Employee Name","Date","Site Name","Site In","Site Out","Total Hours","Overtime Hours"]];
+  Object.keys(allData).sort().filter(d=>d>=from && d<=to).forEach(date=>{
+    const teamsData = allData[date].teams || [];
+    teamsData.forEach(team=>{
       team.employees.forEach(emp=>{
-        let total=0, overtime=0;
-        if(emp.in && emp.out){ const [ih,im]=emp.in.split(":").map(Number); const [oh,om]=emp.out.split(":").map(Number); let diff=(oh*60+om-(ih*60+im))/60; if(diff<0) diff+=24; total=diff.toFixed(2); overtime=(diff>9?diff-9:0).toFixed(2); }
-        rows.push([emp.name,date,emp.site||team.site||"",emp.in||team.siteIn||"",emp.out||team.siteOut||"",total,overtime]);
+        let total="", overtime="", inTime=emp.in||"", outTime=emp.out||"", site=emp.site||team.site;
+        if(inTime && outTime){
+          const [inH,inM] = inTime.split(":").map(Number);
+          const [outH,outM] = outTime.split(":").map(Number);
+          let diff = (outH*60+outM-(inH*60+inM))/60; if(diff<0) diff+=24;
+          total=diff.toFixed(2);
+          const day = date;
+          const weekday = new Date(day).getDay();
+          overtime = (diff>9 ? diff-9 : 0);
+          if(weekday===0 || uaeHolidays.includes(day)) overtime = diff;
+        }
+        rows.push([emp.name,date,site,inTime,outTime,total,overtime]);
       });
     });
   });
   const blob=new Blob([rows.map(r=>r.join(",")).join("\n")],{type:"text/csv"});
   const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="employee_hours.csv"; a.click();
 });
-document.getElementById("viewFilterBtn").addEventListener("click", ()=>{
-  const from=document.getElementById("exportFrom").value||selectedDate;
-  const to=document.getElementById("exportTo").value||selectedDate;
-  const filter=document.getElementById("filterInput").value.trim().toLowerCase();
-  buildTableForDateRange(from,to,filter);
-});
-document.getElementById("filterInput").addEventListener("input", ()=>{ buildTableForDateRange(selectedDate,selectedDate,document.getElementById("filterInput").value.trim().toLowerCase()); });
 
 // ====== Initialize ======
-buildTeamsContent(); buildTableForDateRange(selectedDate,selectedDate);
+buildTeamsContent();
+buildTableForDateRange(selectedDate, selectedDate);
 </script>
-
 </body>
 </html>

@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -39,38 +39,35 @@ button { cursor:pointer; margin:5px; padding:6px 12px; border:none; border-radiu
 </div>
 
 <script>
-// Retrieve saved data from localStorage
-const savedData = JSON.parse(localStorage.getItem("teamCounts")) || { teams: [], off: [] };
-const selectedDate = new Date().toISOString().split("T")[0]; // today's date for reference
+const savedData = JSON.parse(localStorage.getItem("teamCounts")) || {teams:[], off:[]};
+const selectedDate = new Date().toISOString().split("T")[0];
 
 // Build table for normal teams
 const table = document.getElementById("teamTable");
 savedData.teams.forEach(team=>{
     const row = table.insertRow();
     row.insertCell(0).textContent = selectedDate;
-    row.insertCell(1).textContent = team.name; // team name as "Site Name" column
-    row.insertCell(2).textContent = team.count; // team count
+    row.insertCell(1).textContent = team.site;
+    row.insertCell(2).textContent = team.count;
 });
 
-// Build OFF list
+// OFF team employee list
 const offList = document.getElementById("offList");
-if(savedData.off && savedData.off.length>0){
+if(savedData.off.length>0){
     savedData.off.forEach(name=>{
-        const li = document.createElement("li");
+        const li=document.createElement("li");
         li.textContent = name;
         offList.appendChild(li);
     });
-} else {
-    offList.innerHTML = "<li>No employees marked as OFF</li>";
-}
+} else offList.innerHTML="<li>No employees marked as OFF</li>";
 
 // Share as text
 document.getElementById("shareBtn").addEventListener("click", ()=>{
     let msg = `Team Count for ${selectedDate}:\n\n`;
     savedData.teams.forEach(team=>{
-        msg += `${team.name}: ${team.count} members\n`;
+        msg += `${team.site}: ${team.count} members\n`;
     });
-    if(savedData.off && savedData.off.length>0){
+    if(savedData.off.length>0){
         msg += `\nOFF Employees: ${savedData.off.join(", ")}`;
     }
     const waLink = "https://wa.me/?text=" + encodeURIComponent(msg);
@@ -80,8 +77,8 @@ document.getElementById("shareBtn").addEventListener("click", ()=>{
 // Generate image
 document.getElementById("imgBtn").addEventListener("click", ()=>{
     html2canvas(document.getElementById("captureArea")).then(canvas=>{
-        const imgURL = canvas.toDataURL("image/png");
-        const win = window.open();
+        const imgURL=canvas.toDataURL("image/png");
+        const win=window.open();
         win.document.write("<img src='"+imgURL+"' style='max-width:100%'>");
     });
 });

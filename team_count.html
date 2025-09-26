@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -29,7 +29,6 @@ button { cursor:pointer; margin:5px; padding:6px 12px; border:none; border-radiu
       <tr>
         <th>Date</th>
         <th>Site Name</th>
-        <th>Team Name</th>
         <th>Team Count</th>
       </tr>
     </table>
@@ -40,39 +39,25 @@ button { cursor:pointer; margin:5px; padding:6px 12px; border:none; border-radiu
 </div>
 
 <script>
-// Get date from URL
-const params = new URLSearchParams(window.location.search);
-const selectedDate = params.get("date");
-
-// Load teams and data
-const teams = JSON.parse(localStorage.getItem("teams")) || [];
-const allData = JSON.parse(localStorage.getItem("allData")) || {};
+// Retrieve saved data from localStorage
+const savedData = JSON.parse(localStorage.getItem("teamCounts")) || { teams: [], off: [] };
+const selectedDate = new Date().toISOString().split("T")[0]; // today's date for reference
 
 // Build table for normal teams
 const table = document.getElementById("teamTable");
-teams.forEach(team => {
-    if(team.name !== "OFF") {
-        const hasEmployees = team.employees && team.employees.length > 0;
-        const hasSite = team.site && team.site.trim() !== "";
-        const hasInOut = (team.siteIn && team.siteIn.trim() !== "") || (team.siteOut && team.siteOut.trim() !== "");
-
-        if(hasEmployees || hasSite || hasInOut) {
-            const row = table.insertRow();
-            row.insertCell(0).textContent = selectedDate;
-            row.insertCell(1).textContent = team.site || "No Site";
-            row.insertCell(2).textContent = team.name;
-            row.insertCell(3).textContent = team.employees.length;
-        }
-    }
+savedData.teams.forEach(team=>{
+    const row = table.insertRow();
+    row.insertCell(0).textContent = selectedDate;
+    row.insertCell(1).textContent = team.name; // team name as "Site Name" column
+    row.insertCell(2).textContent = team.count; // team count
 });
 
-// OFF team employee list
+// Build OFF list
 const offList = document.getElementById("offList");
-const offTeam = teams.find(t=>t.name==="OFF");
-if(offTeam && offTeam.employees.length>0){
-    offTeam.employees.forEach(emp=>{
-        const li=document.createElement("li");
-        li.textContent = emp.name;
+if(savedData.off && savedData.off.length>0){
+    savedData.off.forEach(name=>{
+        const li = document.createElement("li");
+        li.textContent = name;
         offList.appendChild(li);
     });
 } else {
@@ -82,30 +67,21 @@ if(offTeam && offTeam.employees.length>0){
 // Share as text
 document.getElementById("shareBtn").addEventListener("click", ()=>{
     let msg = `Team Count for ${selectedDate}:\n\n`;
-    teams.forEach(team=>{
-        if(team.name!=="OFF"){
-            const hasEmployees = team.employees && team.employees.length > 0;
-            const hasSite = team.site && team.site.trim() !== "";
-            const hasInOut = (team.siteIn && team.siteIn.trim() !== "") || (team.siteOut && team.siteOut.trim() !== "");
-            if(hasEmployees || hasSite || hasInOut){
-                const count = team.employees.length;
-                msg += `${team.name} (${team.site || "No Site"}): ${count} members\n`;
-            }
-        }
+    savedData.teams.forEach(team=>{
+        msg += `${team.name}: ${team.count} members\n`;
     });
-    if(offTeam && offTeam.employees.length>0){
-        msg += `\nOFF Employees: ${offTeam.employees.map(e=>e.name).join(", ")}`;
+    if(savedData.off && savedData.off.length>0){
+        msg += `\nOFF Employees: ${savedData.off.join(", ")}`;
     }
     const waLink = "https://wa.me/?text=" + encodeURIComponent(msg);
     window.open(waLink, "_blank");
 });
 
-// Generate image of table + OFF list
+// Generate image
 document.getElementById("imgBtn").addEventListener("click", ()=>{
-    const captureArea=document.getElementById("captureArea");
-    html2canvas(captureArea).then(canvas=>{
-        const imgURL=canvas.toDataURL("image/png");
-        const win=window.open();
+    html2canvas(document.getElementById("captureArea")).then(canvas=>{
+        const imgURL = canvas.toDataURL("image/png");
+        const win = window.open();
         win.document.write("<img src='"+imgURL+"' style='max-width:100%'>");
     });
 });
